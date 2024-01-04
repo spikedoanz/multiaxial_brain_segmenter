@@ -211,7 +211,7 @@ model_coronal = tf.keras.models.load_model(CORONAL_MODEL_SESSION_PATH,
 
 #%%
 
-SUBJECT_NAME = SUBJECT_PATH.split('/')[-1].split('.')[0]
+SUBJECT_NAME = SUBJECT_PATH.split(os.sep)[-1].split('.')[0]
 
 print('Loading and preprocessing {} ..'.format(SUBJECT_NAME))
 nii = nib.load(SUBJECT_PATH)
@@ -257,13 +257,13 @@ print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJEC
 if not os.path.exists(OUTPUT_PATH):
     os.mkdir(OUTPUT_PATH)
 nii_out = nib.Nifti1Image(sagittal_segmentation, affine)
-nib.save(nii_out, OUTPUT_PATH + '{}_sagittal.nii'.format(SUBJECT_NAME))
+nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_sagittal.nii'.format(SUBJECT_NAME))
 
 nii_out = nib.Nifti1Image(coronal_segmentation, affine)
-nib.save(nii_out, OUTPUT_PATH + '{}_coronal.nii'.format(SUBJECT_NAME))
+nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_coronal.nii'.format(SUBJECT_NAME))
 
 nii_out = nib.Nifti1Image(axial_segmentation, affine)
-nib.save(nii_out, OUTPUT_PATH + '{}_axial.nii'.format(SUBJECT_NAME))
+nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_axial.nii'.format(SUBJECT_NAME))
 
 print('Making vote consensus..')
 cons = np.stack([sagittal_segmentation,axial_segmentation,coronal_segmentation],0)
@@ -274,4 +274,4 @@ for x in range(cons.shape[1]):
         vote_vol[x,y] = vote
 
 nii_out = nib.Nifti1Image(vote_vol, affine)
-nib.save(nii_out, OUTPUT_PATH + '{}_CONSENSUS.nii'.format(SUBJECT_NAME))
+nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_CONSENSUS.nii'.format(SUBJECT_NAME))
