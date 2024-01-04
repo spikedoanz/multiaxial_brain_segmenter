@@ -248,9 +248,9 @@ else:
     seg_padded = np.array([])
     
 print('Segmenting scan in 3 axis..')
-sagittal_segmentation, sagittal_segmentation_probs = segment_in_axis(mri_padded, model_sagittal, 'sagittal', seg_padded)
-axial_segmentation, axial_segmentation_probs = segment_in_axis(mri_padded, model_axial, 'axial', seg_padded)
-coronal_segmentation, coronal_segmentation_probs = segment_in_axis(mri_padded, model_coronal, 'coronal', seg_padded)
+sagittal_segmentation, sagittal_segmentation_probs = segment_in_axis(mri_padded, model_sagittal, 'sagittal')
+axial_segmentation, axial_segmentation_probs = segment_in_axis(mri_padded, model_axial, 'axial')
+coronal_segmentation, coronal_segmentation_probs = segment_in_axis(mri_padded, model_coronal, 'coronal')
 
 
 print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJECT_NAME)))
