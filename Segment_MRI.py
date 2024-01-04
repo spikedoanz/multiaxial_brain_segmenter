@@ -253,6 +253,11 @@ axial_segmentation, axial_segmentation_probs = segment_in_axis(mri_padded, model
 coronal_segmentation, coronal_segmentation_probs = segment_in_axis(mri_padded, model_coronal, 'coronal')
 
 
+sagittal_segmentation = sagittal_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+axial_segmentation = axial_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+coronal_segmentation = coronal_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+
+
 print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJECT_NAME)))
 if not os.path.exists(OUTPUT_PATH):
     os.mkdir(OUTPUT_PATH)
@@ -272,6 +277,8 @@ for x in range(cons.shape[1]):
     for y in range(cons.shape[2]):
         vote, _ = mode(cons[:,x,y], axis=0)
         vote_vol[x,y] = vote
+
+vote_vol = vote_vol[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
 
 nii_out = nib.Nifti1Image(vote_vol, affine)
 nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_CONSENSUS.nii'.format(SUBJECT_NAME))
