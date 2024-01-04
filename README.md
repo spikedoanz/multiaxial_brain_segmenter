@@ -42,5 +42,5 @@ Segmented tissues and values:
 6 - Skin
 
 
-Tested on Tensorflow 2 (2.0.0) and Tensorflow 1 (1.14)
+Tested on Tensorflow 2 (2.0.0) + Python 3 and Tensorflow 1 (1.14) + Python 2
 
