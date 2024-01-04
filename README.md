@@ -1,7 +1,7 @@
 # multiaxial_brain_segmenter
 
 
-# INPUT:
+# INPUT
 
 SUBJECT_PATH:
 Path to T1w MRI to segment in format nifti file (.nii )
