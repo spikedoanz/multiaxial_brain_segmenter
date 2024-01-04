@@ -25,5 +25,16 @@ Path to coronal segmenter model (included in repository), in format .h5
 
 In OUTPUT_PATH you will find 4 files: Individual segmentations along each axis by each respective model, and the consensus segmentation made by majority vote. All segmentations will be in nifti format (.nii) with the header of the original MRI.
 
+Segmented tissues and values:
+
+0 - Background
+1 - Air (Sinus cavities)
+2 - Gray Matter
+3 - White Matter
+4 - Cerebrospinal Fluid
+5 - Bone (Skull)
+6 - Skin
+
+
 Tested on Tensorflow 2 (2.0.0) and Tensorflow 1 (1.14)
 
