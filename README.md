@@ -27,7 +27,7 @@ In OUTPUT_PATH you will find 4 files: Individual segmentations along each axis b
 
 Segmented tissues and values:
 
-0 - Background
+0 - Background //
 1 - Air (Sinus cavities)
 2 - Gray Matter
 3 - White Matter
