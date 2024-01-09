@@ -217,6 +217,7 @@ print('Loading and preprocessing {} ..'.format(SUBJECT_NAME))
 nii = nib.load(SUBJECT_PATH)
 affine = nii.affine
 mri = nii.get_data()
+mri_shape = mri.shape
 mri = resize(mri, output_shape=((mri.shape[0], 256, 256)),  anti_aliasing=True, preserve_range=True)    
 mri = mri / np.percentile(mri, 95)
 
@@ -252,10 +253,15 @@ sagittal_segmentation, sagittal_segmentation_probs = segment_in_axis(mri_padded,
 axial_segmentation, axial_segmentation_probs = segment_in_axis(mri_padded, model_axial, 'axial')
 coronal_segmentation, coronal_segmentation_probs = segment_in_axis(mri_padded, model_coronal, 'coronal')
 
-
+# Remove padding
 sagittal_segmentation = sagittal_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
 axial_segmentation = axial_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
 coronal_segmentation = coronal_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+
+# Resize to original
+sagittal_segmentation = resize(sagittal_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
+axial_segmentation = resize(axial_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
+coronal_segmentation = resize(coronal_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
 
 
 print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJECT_NAME)))
