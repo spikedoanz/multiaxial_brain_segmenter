@@ -256,6 +256,7 @@ print('Segmenting scan in 3 axis..')
 sagittal_segmentation = model_sagittal.predict(np.expand_dims(mri_padded,-1), batch_size=1)
 coronal_segmentation = model_coronal.predict(np.expand_dims(np.swapaxes(mri_padded, 0, 1),-1), batch_size=1)
 axial_segmentation = model_axial.predict(np.expand_dims(np.swapaxes(np.swapaxes(mri_padded, 1,2), 0,1),-1), batch_size=1)
+
 sagittal_segmentation = np.argmax(sagittal_segmentation,-1)
 coronal_segmentation = np.swapaxes(np.argmax(coronal_segmentation,-1),0,1)
 axial_segmentation = np.swapaxes(np.swapaxes(np.argmax(axial_segmentation,-1),0,1), 1,2)
