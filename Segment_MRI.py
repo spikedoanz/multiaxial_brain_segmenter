@@ -216,13 +216,13 @@ SUBJECT_NAME = SUBJECT_PATH.split(os.sep)[-1].split('.')[0]
 print('Loading and preprocessing {} ..'.format(SUBJECT_NAME))
 nii = nib.load(SUBJECT_PATH)
 affine = nii.affine
-mri = nii.get_data()
+mri = nii.get_fdata()
 mri_shape = mri.shape
 mri = resize(mri, output_shape=((mri.shape[0], 256, 256)),  anti_aliasing=True, preserve_range=True)    
 mri = mri / np.percentile(mri, 95)
 
 if len(SEGMENTATION_PATH) > 0:
-    seg = nib.load(SEGMENTATION_PATH).get_data()     
+    seg = nib.load(SEGMENTATION_PATH).get_fdata()     
     seg = np.array(seg, dtype=float)
     np.unique(seg)
     seg = seg - 1   
