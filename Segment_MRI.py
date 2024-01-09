@@ -277,7 +277,7 @@ nii_out = nib.Nifti1Image(axial_segmentation, affine)
 nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_axial.nii'.format(SUBJECT_NAME))
 
 print('Making vote consensus..')
-vote_vol = np.zeros(sagittal_segmentation.shape) + 99
+vote_vol = np.zeros(sagittal_segmentation.shape)
 equals = np.logical_and( (sagittal_segmentation==axial_segmentation), (axial_segmentation==coronal_segmentation) )
 vote_vol[equals == 1] = sagittal_segmentation[equals == 1]
 sagittal_needs_consensus_vector = sagittal_segmentation[equals == 0]
