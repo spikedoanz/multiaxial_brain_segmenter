@@ -261,15 +261,18 @@ coronal_segmentation = np.swapaxes(np.argmax(coronal_segmentation,-1),0,1)
 axial_segmentation = np.swapaxes(np.swapaxes(np.argmax(axial_segmentation,-1),0,1), 1,2)
 
 # Remove padding
-sagittal_segmentation = sagittal_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
-axial_segmentation = axial_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
-coronal_segmentation = coronal_segmentation[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+sagittal_segmentation = sagittal_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+axial_segmentation = axial_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+coronal_segmentation = coronal_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
 
 # Resize to original
 sagittal_segmentation = resize(sagittal_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
 axial_segmentation = resize(axial_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
 coronal_segmentation = resize(coronal_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
 
+sagittal_segmentation = np.array(sagittal_segmentation, dtype='int8')
+axial_segmentation = np.array(axial_segmentation, dtype='int8')
+coronal_segmentation = np.array(coronal_segmentation, dtype='int8')
 
 print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJECT_NAME)))
 if not os.path.exists(OUTPUT_PATH):
