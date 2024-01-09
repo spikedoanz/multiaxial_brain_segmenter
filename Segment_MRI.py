@@ -277,14 +277,16 @@ nii_out = nib.Nifti1Image(axial_segmentation, affine)
 nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_axial.nii'.format(SUBJECT_NAME))
 
 print('Making vote consensus..')
-cons = np.stack([sagittal_segmentation,axial_segmentation,coronal_segmentation],0)
-vote_vol = np.zeros(sagittal_segmentation.shape)
-for x in range(cons.shape[1]):
-    for y in range(cons.shape[2]):
-        vote, _ = mode(cons[:,x,y], axis=0)
-        vote_vol[x,y] = vote
+vote_vol = np.zeros(sagittal_segmentation.shape) + 99
+equals = np.logical_and( (sagittal_segmentation==axial_segmentation), (axial_segmentation==coronal_segmentation) )
+vote_vol[equals == 1] = sagittal_segmentation[equals == 1]
+sagittal_needs_consensus_vector = sagittal_segmentation[equals == 0]
+axial_needs_consensus_vector = axial_segmentation[equals == 0]
+coronal_needs_consensus_vector = coronal_segmentation[equals == 0]
+needs_consensus_vector = np.stack([sagittal_needs_consensus_vector, axial_needs_consensus_vector, coronal_needs_consensus_vector],0)
+vote_vector = mode(needs_consensus_vector, axis=0)
+vote_vol[equals == 0] = vote_vector[0][0]
 
-vote_vol = vote_vol[(int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
 
 nii_out = nib.Nifti1Image(vote_vol, affine)
 nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_CONSENSUS.nii'.format(SUBJECT_NAME))
