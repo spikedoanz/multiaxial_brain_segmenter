@@ -35,14 +35,16 @@ elif tf.__version__[0] == '2':
 
 #%% USER INPUT
 
-SUBJECT_PATH = ''
+SUBJECT_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/MRIs_and_labels/NIFTYS/Normal_heads/Andy.nii'
 SEGMENTATION_PATH = ''
 
 OUTPUT_PATH = ''
 
-SAGITTAL_MODEL_SESSION_PATH = ''
-AXIAL_MODEL_SESSION_PATH = ''
-CORONAL_MODEL_SESSION_PATH = ''
+SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/sagittal_segmenter_NoDataAug/sagittal_best_model.h5'
+AXIAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/axial_segmenter_NoDataAug/axial_best_model.h5'
+CORONAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/coronal_segmenter_NoDataAug/coronal_best_model.h5'
+
+SEGMENTATION_METHOD = 2
 
 #%% METRICS AND LOSSES
         
@@ -222,7 +224,7 @@ mri = resize(mri, output_shape=((mri.shape[0], 256, 256)),  anti_aliasing=True, 
 mri = mri / np.percentile(mri, 95)
 
 if len(SEGMENTATION_PATH) > 0:
-    seg = nib.load(SEGMENTATION_PATH).get_fdata()     
+    seg = nib.load(SEGMENTATION_PATH).get_data()     
     seg = np.array(seg, dtype=float)
     np.unique(seg)
     seg = seg - 1   
@@ -248,23 +250,28 @@ if len(SEGMENTATION_PATH) > 0:
 else:
     seg_padded = np.array([])
     
+
+    
 print('Segmenting scan in 3 axis..')
-#sagittal_segmentation, sagittal_segmentation_probs = segment_in_axis(mri_padded, model_sagittal, 'sagittal')
-#axial_segmentation, axial_segmentation_probs = segment_in_axis(mri_padded, model_axial, 'axial')
-#coronal_segmentation, coronal_segmentation_probs = segment_in_axis(mri_padded, model_coronal, 'coronal')
-
-sagittal_segmentation = model_sagittal.predict(np.expand_dims(mri_padded,-1), batch_size=1)
-coronal_segmentation = model_coronal.predict(np.expand_dims(np.swapaxes(mri_padded, 0, 1),-1), batch_size=1)
-axial_segmentation = model_axial.predict(np.expand_dims(np.swapaxes(np.swapaxes(mri_padded, 1,2), 0,1),-1), batch_size=1)
-
-sagittal_segmentation = np.argmax(sagittal_segmentation,-1)
-coronal_segmentation = np.swapaxes(np.argmax(coronal_segmentation,-1),0,1)
-axial_segmentation = np.swapaxes(np.swapaxes(np.argmax(axial_segmentation,-1),0,1), 1,2)
+if SEGMENTATION_METHOD == 1:
+    sagittal_segmentation, sagittal_segmentation_probs = segment_in_axis(mri_padded, model_sagittal, 'sagittal')
+    axial_segmentation, axial_segmentation_probs = segment_in_axis(mri_padded, model_axial, 'axial')
+    coronal_segmentation, coronal_segmentation_probs = segment_in_axis(mri_padded, model_coronal, 'coronal')
+    
+elif SEGMENTATION_METHOD == 2:
+    sagittal_segmentation = model_sagittal.predict(np.expand_dims(mri_padded,-1), batch_size=1)
+    coronal_segmentation = model_coronal.predict(np.expand_dims(np.swapaxes(mri_padded, 0, 1),-1), batch_size=1)
+    axial_segmentation = model_axial.predict(np.expand_dims(np.swapaxes(np.swapaxes(mri_padded, 1,2), 0,1),-1), batch_size=1)
+    
+    sagittal_segmentation = np.argmax(sagittal_segmentation,-1)
+    coronal_segmentation = np.swapaxes(np.argmax(coronal_segmentation,-1),0,1)
+    axial_segmentation = np.swapaxes(np.swapaxes(np.argmax(axial_segmentation,-1),0,1), 1,2)
 
 # Remove padding
-sagittal_segmentation = sagittal_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
-axial_segmentation = axial_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
-coronal_segmentation = coronal_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+if padding_width > 0:
+    sagittal_segmentation = sagittal_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+    axial_segmentation = axial_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
+    coronal_segmentation = coronal_segmentation[int(padding_width/2):-(int(padding_width/2) + padding_width%2)]
 
 # Resize to original
 sagittal_segmentation = resize(sagittal_segmentation, output_shape=mri_shape, order=0, anti_aliasing=True, preserve_range=True)    
@@ -274,18 +281,6 @@ coronal_segmentation = resize(coronal_segmentation, output_shape=mri_shape, orde
 sagittal_segmentation = np.array(sagittal_segmentation, dtype='int8')
 axial_segmentation = np.array(axial_segmentation, dtype='int8')
 coronal_segmentation = np.array(coronal_segmentation, dtype='int8')
-
-print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJECT_NAME)))
-if not os.path.exists(OUTPUT_PATH):
-    os.mkdir(OUTPUT_PATH)
-nii_out = nib.Nifti1Image(sagittal_segmentation, affine)
-nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_sagittal.nii'.format(SUBJECT_NAME))
-
-nii_out = nib.Nifti1Image(coronal_segmentation, affine)
-nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_coronal.nii'.format(SUBJECT_NAME))
-
-nii_out = nib.Nifti1Image(axial_segmentation, affine)
-nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_axial.nii'.format(SUBJECT_NAME))
 
 print('Making vote consensus..')
 vote_vol = np.zeros(sagittal_segmentation.shape)
@@ -299,5 +294,26 @@ vote_vector = mode(needs_consensus_vector, axis=0)
 vote_vol[equals == 0] = vote_vector[0][0]
 
 
-nii_out = nib.Nifti1Image(vote_vol, affine)
-nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_CONSENSUS.nii'.format(SUBJECT_NAME))
+plt.figure(figsize=(15,10))
+plt.subplot(2,3,1); plt.imshow(np.rot90(mri[100]), cmap='gray')
+plt.subplot(2,3,2); plt.imshow(np.rot90(sagittal_segmentation[100])); plt.title('Sagittal segmenter')
+plt.subplot(2,3,3); plt.imshow(np.rot90(axial_segmentation[100])); plt.title('Axial segmenter')
+plt.subplot(2,3,5); plt.imshow(np.rot90(coronal_segmentation[100])); plt.title('Coronal segmenter')
+plt.subplot(2,3,6); plt.imshow(np.rot90(vote_vol[100])); plt.title('Majority vote segmenter')
+
+
+if len(OUTPUT_PATH) > 0:
+    print('Saving segmentation in {} ..'.format(OUTPUT_PATH + '{}.nii'.format(SUBJECT_NAME)))
+    if not os.path.exists(OUTPUT_PATH):
+        os.mkdir(OUTPUT_PATH)
+    nii_out = nib.Nifti1Image(sagittal_segmentation, affine)
+    nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_sagittal.nii'.format(SUBJECT_NAME))
+    
+    nii_out = nib.Nifti1Image(coronal_segmentation, affine)
+    nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_coronal.nii'.format(SUBJECT_NAME))
+    
+    nii_out = nib.Nifti1Image(axial_segmentation, affine)
+    nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_axial.nii'.format(SUBJECT_NAME))
+
+    nii_out = nib.Nifti1Image(vote_vol, affine)
+    nib.save(nii_out, OUTPUT_PATH + os.sep + '{}_CONSENSUS.nii'.format(SUBJECT_NAME))
