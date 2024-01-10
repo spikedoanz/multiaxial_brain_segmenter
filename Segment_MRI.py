@@ -35,14 +35,14 @@ elif tf.__version__[0] == '2':
 
 #%% USER INPUT
 
-SUBJECT_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/MRIs_and_labels/NIFTYS/Normal_heads/Andy.nii'
+SUBJECT_PATH = '/myMRI.nii'
 SEGMENTATION_PATH = ''
 
 OUTPUT_PATH = ''
 
-SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/sagittal_segmenter_NoDataAug/sagittal_best_model.h5'
-AXIAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/axial_segmenter_NoDataAug/axial_best_model.h5'
-CORONAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/coronal_segmenter_NoDataAug/coronal_best_model.h5'
+SAGITTAL_MODEL_SESSION_PATH = '/sagittal_best_model.h5'
+AXIAL_MODEL_SESSION_PATH = '/axial_best_model.h5'
+CORONAL_MODEL_SESSION_PATH = '/coronal_best_model.h5'
 
 SEGMENTATION_METHOD = 2
 
@@ -290,7 +290,7 @@ sagittal_needs_consensus_vector = sagittal_segmentation[equals == 0]
 axial_needs_consensus_vector = axial_segmentation[equals == 0]
 coronal_needs_consensus_vector = coronal_segmentation[equals == 0]
 needs_consensus_vector = np.stack([sagittal_needs_consensus_vector, axial_needs_consensus_vector, coronal_needs_consensus_vector],0)
-vote_vector = mode(needs_consensus_vector, axis=0)
+vote_vector = mode(needs_consensus_vector, axis=0, keepdims=True)
 vote_vol[equals == 0] = vote_vector[0][0]
 
 
