@@ -1,12 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 21 10:56:33 2022
-
-Get ROIs from malignants in the training set, and compare with ground truth segmented locations (if available)
-
-Get some metric for detection. 
-
 @author: deeperthought
 """
 
@@ -34,9 +28,9 @@ ORIENTATION = 'sagittal'
 #ORIENTATION = 'coronal'
 
 
-PARTITIONS_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/DATA/data.npy'
+PARTITIONS_PATH = '/DATA/data.npy'
 
-OUTPUT_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/' 
+OUTPUT_PATH = '/Sessions/' 
 
 EPOCHS = 1000
 NAME = '{}_segmenter_NoDataAug_1000epochs'.format(ORIENTATION)
@@ -52,7 +46,7 @@ DATA_AUGMENTATION = True
 
 
 LOAD_MODEL = False
-MODEL_SESSION_PATH = '/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/{}_segmenter_NoDataAug_1000epochs/'.format(ORIENTATION)
+MODEL_SESSION_PATH = '/Sessions/{}_segmenter_NoDataAug_1000epochs/'.format(ORIENTATION)
 
 #%% METRICS AND LOSSES
         
@@ -366,8 +360,8 @@ class DataGenerator(tf.keras.utils.Sequence): # inheriting from Sequence allows 
 #%% TEST GENERATOR
     
 #
-#Label_PATH = '/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/labels/{}/'.format(ORIENTATION)
-#DATA_PATH = '/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/slices/{}/'.format(ORIENTATION)
+#Label_PATH = '/labels/{}/'.format(ORIENTATION)
+#DATA_PATH = '/slices/{}/'.format(ORIENTATION)
 #partition = np.load(PARTITIONS_PATH, allow_pickle=True).item()
 # # Parameters
 #params_train = {'dim': (256,256),
@@ -573,8 +567,8 @@ class my_model_checkpoint(tf.keras.callbacks.Callback):
 
 #%%  TRAINING SESSIONS
 
-Label_PATH = '/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/labels/{}/'.format(ORIENTATION)
-DATA_PATH = '/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/slices/{}/'.format(ORIENTATION)
+Label_PATH = '/labels/{}/'.format(ORIENTATION)
+DATA_PATH = '/slices/{}/'.format(ORIENTATION)
 
 
 #available_data = os.listdir(DATA_PATH)
