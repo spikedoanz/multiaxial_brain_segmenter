@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 
 from skimage.transform import resize
 
-PATH = '/home/deeperthought/kirby/home/AphasicStrokeTrial'
+PATH = ''
 
-SEG = pd.read_csv('/home/deeperthought/kirby/home/AphasicStrokeTrial/all_LABEL.txt', header=None)[0].values
-MRI = pd.read_csv('/home/deeperthought/kirby/home/AphasicStrokeTrial/all_MRI.txt', header=None)[0].values
+SEG = pd.read_csv('/all_LABEL.txt', header=None)[0].values
+MRI = pd.read_csv('/all_MRI.txt', header=None)[0].values
 
 affines = []
 mris_list = []
@@ -113,8 +113,8 @@ plt.imshow(DATA_Z[:,:,6595])
 plt.subplot(3,2,6)
 plt.imshow(LABELS_Z[:,:,6595])
 
-OUT_DATA = '/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/slices/'
-OUT_LABELS = '/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/labels/'
+OUT_DATA = '/slices/'
+OUT_LABELS = '/labels/'
 
 os.mkdir(OUT_DATA + 'sagittal')
 os.mkdir(OUT_LABELS + 'sagittal')
@@ -132,17 +132,5 @@ for i in range(DATA_X.shape[0]):
     
     np.save(OUT_DATA + '/coronal/slice_{}.npy'.format(i), DATA_Y[:,i])
     np.save(OUT_LABELS + '/coronal/slice_{}.npy'.format(i), LABELS_Y[:,i])
-#    
-#np.unique(LABELS_X)
-#
-#np.save('/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/mri.npy', DATA)
-#np.save('/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/segmentations.npy', LABELS)
 
 
-
-
-y = np.load('/home/deeperthought/kirby/home/AphasicStrokeTrial/ALL_DATA/labels/sagittal/slice_1097.npy', allow_pickle=True)
-
-np.unique(y)
-
-plt.imshow(y)
