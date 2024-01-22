@@ -29,16 +29,16 @@ TARGET_WIDTH = 256
 i = 0
 for i in range(len(MRI)):
     print(i)
-#    mri_path = PATH + MRI[i].split('AphasicStrokeTrial')[-1]
-#    mri = nib.load(mri_path)
-#
-#    affines.append(mri.affine)
-#
-#    mri = mri.get_data()
-#
-#    mri = resize(mri, output_shape=((mri.shape[0], 256, 256)),  anti_aliasing=True, preserve_range=True)    
-#
-#    mri = mri / np.percentile(mri, 95)
+    mri_path = PATH + MRI[i].split('AphasicStrokeTrial')[-1]
+    mri = nib.load(mri_path)
+
+    affines.append(mri.affine)
+
+    mri = mri.get_data()
+
+    mri = resize(mri, output_shape=((mri.shape[0], 256, 256)),  anti_aliasing=True, preserve_range=True)    
+
+    mri = mri / np.percentile(mri, 95)
 
 
     seg_path = PATH + SEG[i].split('AphasicStrokeTrial')[-1]
