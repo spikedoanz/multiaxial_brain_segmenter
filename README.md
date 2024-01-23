@@ -1,5 +1,6 @@
 # multiaxial_brain_segmenter
 
+Main script: Segment_MRI.py
 
 # INPUT
 
