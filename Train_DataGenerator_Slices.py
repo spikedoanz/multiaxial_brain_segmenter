@@ -1,639 +1,325 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
+Created on Mon Mar 21 10:56:33 2022
+
+Get ROIs from malignants in the training set, and compare with ground truth segmented locations (if available)
+
+Get some metric for detection. 
+
 @author: deeperthought
 """
 
-
+GPU = 0
 
 import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
   # Restrict TensorFlow to only use the first GPU
   try:
-    tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
-    tf.config.experimental.set_memory_growth(gpus[0], True)
+    tf.config.experimental.set_visible_devices(gpus[GPU], 'GPU')
+    tf.config.experimental.set_memory_growth(gpus[GPU], True)
   except RuntimeError as e:
     # Visible devices must be set at program startup
     print(e)
 
 import os
+os.chdir('/media/HDD/MultiAxial/scripts/')
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from tensorflow.keras.optimizers import Adam
 
+from utils import dice_loss, dice_coef, Generalised_dice_coef_multilabel7,dice_coef_multilabel_bin0,dice_coef_multilabel_bin1, dice_coef_multilabel_bin2,dice_coef_multilabel_bin3, dice_coef_multilabel_bin4,dice_coef_multilabel_bin5,dice_coef_multilabel_bin6
+from utils import UNet_v0_2DTumorSegmenter, UNet_v0_2DTumorSegmenter_V2
+from utils import MyHistory, my_model_checkpoint
+from utils import DataGenerator, DataGenerator2
 
 ORIENTATION = 'sagittal'
 #ORIENTATION = 'axial'
 #ORIENTATION = 'coronal'
 
+# PARTITIONS_PATH = ''
+PARTITIONS_PATH = '/media/HDD/MultiAxial/Data/partitions.npy'
 
-PARTITIONS_PATH = '/DATA/data.npy'
+OUTPUT_PATH = '/media/HDD/MultiAxial/Sessions/' 
 
-OUTPUT_PATH = '/Sessions/' 
-
-EPOCHS = 1000
-NAME = '{}_segmenter_NoDataAug_1000epochs'.format(ORIENTATION)
-
-
+EPOCHS = 2
 BATCH_SIZE = 6
-DEPTH = 7
-N_BASE_FILTERS = 48
+DEPTH = 6
+N_BASE_FILTERS = 4
 LR=5e-5
 activation_name = 'softmax'
-DATA_AUGMENTATION = True
 
+DATA_AUGMENTATION = False
 
+ADD_SPATIAL_PRIOR = True
+ADD_SPATIAL_EMBEDDING = False
 
 LOAD_MODEL = False
-MODEL_SESSION_PATH = '/Sessions/{}_segmenter_NoDataAug_1000epochs/'.format(ORIENTATION)
 
-#%% METRICS AND LOSSES
-        
-    
-def dice_loss(y_true, y_pred):
-#  y_true = tf.cast(y_true, tf.float32)
-#  y_pred = tf.math.sigmoid(y_pred)
-  numerator = 2 * tf.math.reduce_sum(y_true * y_pred)
-  denominator = tf.math.reduce_sum(y_true + y_pred)
-  return 1 - numerator / denominator
+NAME = f'{ORIENTATION}Segmenter_PositionalEncoding_{EPOCHS}epochs_depth{DEPTH}_baseFilters{N_BASE_FILTERS}'
 
-def Generalised_dice_coef_multilabel7(y_true, y_pred, numLabels=7):
-    """This is the loss function to MINIMIZE. A perfect overlap returns 0. Total disagreement returns numeLabels"""
-    dice=0
-    for index in range(numLabels):
-        dice -= dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index])
-    return numLabels + dice
+MODEL_SESSION_PATH = f'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/{NAME}/'
+     
+DATA_PATH = f'/media/HDD/MultiAxial/Data/New_Slices_Coordinates/{ORIENTATION}/MRI/'
+Label_PATH =  f'/media/HDD/MultiAxial/Data/New_Slices_Coordinates/{ORIENTATION}/GT/'
+COORDS_PATH = f'/media/HDD/MultiAxial/Data/New_Slices_Coordinates/{ORIENTATION}/coords/'
 
-def dice_coef(y_true, y_pred):
-    smooth = 1e-6
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = tf.reduce_sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (tf.reduce_sum(y_true_f**2) + tf.reduce_sum(y_pred_f**2) + smooth)
-
-
-def dice_coef_multilabel_bin0(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,0], tf.math.round(y_pred[:,:,:,0]))
-    return dice
-
-def dice_coef_multilabel_bin1(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,1], tf.math.round(y_pred[:,:,:,1]))
-    return dice
-
-def dice_coef_multilabel_bin2(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,2], tf.math.round(y_pred[:,:,:,2]))
-    return dice
-
-def dice_coef_multilabel_bin3(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,3], tf.math.round(y_pred[:,:,:,3]))
-    return dice
-
-def dice_coef_multilabel_bin4(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,4], tf.math.round(y_pred[:,:,:,4]))
-    return dice
-
-def dice_coef_multilabel_bin5(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,5], tf.math.round(y_pred[:,:,:,5]))
-    return dice
-
-def dice_coef_multilabel_bin6(y_true, y_pred):
-    dice = dice_coef(y_true[:,:,:,6], tf.math.round(y_pred[:,:,:,6]))
-    return dice
-
-def Generalised_dice_coef_multilabel2_numpy(y_true, y_pred, numLabels=2):
-    """This is the loss function to MINIMIZE. A perfect overlap returns 0. Total disagreement returns numeLabels"""
-    dice=0
-    for index in range(numLabels):
-        dice -= dice_coef_numpy(y_true[:,:,:,index], y_pred[:,:,:,index])
-    return numLabels + dice
-
-def dice_coef_multilabel_bin0_numpy(y_true, y_pred):
-    dice = dice_coef_numpy(y_true[:,:,:,0], np.round(y_pred[:,:,:,0]))
-    return dice
-def dice_coef_multilabel_bin1_numpy(y_true, y_pred):
-    dice = dice_coef_numpy(y_true[:,:,:,1], np.round(y_pred[:,:,:,1]))
-    return dice
-
-def dice_coef_numpy(y_true, y_pred):
-    smooth = 1e-6
-    y_true_f = y_true.flatten()
-    y_pred_f = y_pred.flatten()
-    intersection = np.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (np.sum(y_true_f**2) + np.sum(y_pred_f**2) + smooth)
-
-
-#%% 2D Unet
-
-from tensorflow.keras import backend as K
-from tensorflow.keras import Input, Model
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Activation, BatchNormalization, Conv2DTranspose
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import regularizers
-from tensorflow.keras.layers import concatenate
-
-
-
-def double_conv_block(x, n_filters):
-   # Conv2D then ReLU activation
-   x = tf.keras.layers.Conv2D(n_filters, 3, padding = "same", activation = "relu", kernel_initializer = "he_normal")(x)
-   # Conv2D then ReLU activation
-   x = tf.keras.layers.Conv2D(n_filters, 3, padding = "same", activation = "relu", kernel_initializer = "he_normal")(x)
-   return x
-
-def downsample_block(x, n_filters):
-   f = double_conv_block(x, n_filters)
-   p = tf.keras.layers.MaxPool2D(2)(f)
-   p = tf.keras.layers.Dropout(0)(p)
-   return f, p
-
-def upsample_block(x, conv_features, n_filters):
-   # upsample
-   x = tf.keras.layers.Conv2DTranspose(n_filters, 3, 2, padding="same")(x)
-   # concatenate
-   x = tf.keras.layers.concatenate([x, conv_features])
-   # dropout
-   x = tf.keras.layers.Dropout(0)(x)
-   # Conv2D twice with ReLU activation
-   x = double_conv_block(x, n_filters)
-   return x
-
-
-
-#%% MODEL 2
-
-
-
-def create_convolution_block(input_layer, n_filters, kernel=(3, 3), padding='same', strides=(1, 1), L2=0, use_batch_norm=True):
-
-    layer = Conv2D(n_filters, kernel, padding=padding, strides=strides, kernel_regularizer=regularizers.l2(L2))(input_layer)
-    if use_batch_norm:
-        layer = BatchNormalization()(layer)
-
-    return Activation('relu')(layer)
-
-
-def get_up_convolution(n_filters, pool_size=(2,2), kernel_size=(2,2), strides=(2, 2),
-                       deconvolution=True, bilinear_upsampling=False, L2=0):
-    if deconvolution:
-        if bilinear_upsampling:
-            return Conv2DTranspose(filters=n_filters, kernel_size=(3,3),
-                                   strides=strides, trainable=False)#, kernel_initializer=make_bilinear_filter_5D(shape=(3,3,3,n_filters,n_filters)), trainable=False)
-        else:
-            return Conv2DTranspose(filters=n_filters, kernel_size=(2,2),
-                                   strides=strides, kernel_regularizer=regularizers.l2(L2))            
-    else:
-        return UpSampling2D(size=pool_size)
-
-def my_init(shape, dtype=None):
-    return K.random_normal(shape, dtype=dtype)
-
-
-
-def UNet_v0_2DTumorSegmenter(input_shape =  (256, 256,1), pool_size=(2, 2),initial_learning_rate=1e-5, deconvolution=True,
-                      depth=6, n_base_filters=32, activation_name="softmax", L2=0, use_batch_norm=True):
-        """ Simple version, padding 'same' on every layer, output size is equal to input size. Has border artifacts and checkerboard artifacts """
-        inputs = Input(input_shape)
-        levels = list()
-        #current_layer = Conv2D(n_base_filters, (1, 1))(inputs)  # ???? needed??  Not even a nonlinear activation!!!
-        current_layer = inputs
-    
-        # add levels with max pooling
-        for layer_depth in range(depth):
-            layer1 = create_convolution_block(input_layer=current_layer, kernel=(3,3), n_filters=n_base_filters*(layer_depth+1), padding='same', L2=L2, use_batch_norm=False)
-            layer2 = create_convolution_block(input_layer=layer1, kernel=(3,3),  n_filters=n_base_filters*(layer_depth+1), padding='same', L2=L2, use_batch_norm=False)
-            if layer_depth < depth - 1:
-                current_layer = MaxPooling2D(pool_size=(2,2))(layer2)
-                levels.append([layer1, layer2, current_layer])
-            else:
-                current_layer = layer2
-                levels.append([layer1, layer2])
-
-        for layer_depth in range(depth-2, -1, -1):
-            
-            up_convolution = get_up_convolution(pool_size=(2,2), deconvolution=deconvolution, n_filters=n_base_filters*(layer_depth+1), L2=L2)(current_layer)
-
-            concat = concatenate([up_convolution, levels[layer_depth][1]] , axis=-1)
-            current_layer = create_convolution_block(n_filters=n_base_filters*(layer_depth+1),kernel=(3,3), input_layer=concat, padding='same', L2=L2, use_batch_norm=False)
-            current_layer = create_convolution_block(n_filters=n_base_filters*(layer_depth+1),kernel=(3,3), input_layer=current_layer, padding='same', L2=L2, use_batch_norm=False)
-
-
-        current_layer = Conv2D(256, (1, 1), activation='relu')(current_layer)
-        current_layer = Conv2D(512, (1, 1), activation='relu')(current_layer)
-    
-        final_convolution = Conv2D(7, (1, 1))(current_layer)              
-        act = Activation(activation_name)(final_convolution)
-        
-        model = Model(inputs=[inputs], outputs=act)
-
-        model.compile(loss=Generalised_dice_coef_multilabel7, 
-                      optimizer=Adam(lr=initial_learning_rate), 
-                      metrics=[dice_coef_multilabel_bin0, 
-                               dice_coef_multilabel_bin1, 
-                               dice_coef_multilabel_bin2,
-                               dice_coef_multilabel_bin3,
-                               dice_coef_multilabel_bin4,
-                               dice_coef_multilabel_bin5,
-                               dice_coef_multilabel_bin6])
-
-        return model
-    
-
-#%% FROM DIRECTORY
-
-
-
-"""
-Then add contralateral, clinical, previous exam...
-
-"""
-
-class DataGenerator(tf.keras.utils.Sequence): # inheriting from Sequence allows for multiprocessing functionalities
-
-    def __init__(self, list_IDs, batch_size=4, dim=(256,256,1), n_channels=3,
-                 n_classes=2, shuffledata=True, data_path='', labels_path='', 
-                 do_augmentation=True, debug=False):
-        
-        self.dim = dim
-        self.batch_size = batch_size
-        self.list_IDs = list_IDs
-        self.n_channels = n_channels
-        self.n_classes = n_classes
-        self.shuffledata = shuffledata
-        self.on_epoch_end()
-        self.data_path = data_path
-        self.labels_path = labels_path
-        self.seed = 0
-        self.do_augmentation = do_augmentation
-        self.debug = debug
-        
-        self.augmentor = tf.keras.preprocessing.image.ImageDataGenerator(
-                    rotation_range=0,
-                    shear_range=0.0,
-                    zoom_range=0.0,
-                    horizontal_flip=False,
-                    vertical_flip=False,
-                    fill_mode='nearest',  # ????
-                    
-                )
-        
-        self.augmentor_mask = tf.keras.preprocessing.image.ImageDataGenerator( 
-                    rotation_range=0,
-                    shear_range=0.0,
-                    zoom_range=0.0,
-                    horizontal_flip=False,
-                    vertical_flip=False,
-                    fill_mode='constant'
-                    
-#                    preprocessing_function = lambda x: np.where(x>0, 1, 0).astype('float32')
-                    
-#                    preprocessing_function = lambda x:np.where(x < 0.5, 0, 
-#                                                                (np.where(x < 1.5, 1, 
-#                                                                (np.where(x < 2.5, 2, 
-#                                                                (np.where(x < 3.5, 3, 
-#                                                                (np.where(x < 4.5, 4, 
-#                                                                (np.where(x < 5.5, 5, 6))))))))))).astype('float32') 
-                    )
-
-    def __len__(self):
-        'Denotes the number of batches per epoch'
-        return int(np.floor(len(self.list_IDs) / self.batch_size))
-
-    def __getitem__(self, index):
-        'Generate one batch of data'
-        # Generate indexes of the batch
-        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
-
-        # Find list of IDs
-        list_IDs_temp = [self.list_IDs[k] for k in indexes]
-
-        # Generate data
-        X, y = self.__data_generation(list_IDs_temp)
-        
-        if self.do_augmentation:
-            for i in range(self.batch_size):
-                X[i] *= np.random.uniform(low=0.9, high=1.1, size=1)                                                     
-                    
-        y = tf.keras.utils.to_categorical(y, num_classes=self.n_classes) 
-
-        if self.debug:
-            return X, y, list_IDs_temp
-        else:
-            return X, y
-
-
-    def on_epoch_end(self):
-        'Updates indexes after each epoch'
-        self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffledata == True:
-            np.random.shuffle(self.indexes)
-
-
-    def __data_generation(self, list_IDs_temp):
-        'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
-        # Initialization
-        X = np.empty((self.batch_size, self.dim[0], self.dim[1], self.n_channels))#, dtype='float32')
-        y = np.zeros((self.batch_size, self.dim[0], self.dim[1]))
-
-        # Generate data
-        for i, ID in enumerate(list_IDs_temp):          
-            X[i,:,:,0] = np.load(self.data_path + ID)   # Here we add the path. ID can be the path
-            
-            y[i] = np.load(self.labels_path + ID)
-
-        y = y-1
-        y = np.expand_dims(y, -1) #ImageDataGenerator needs arrays of rank 4. But wants channel dim = 1,3,4
-        
-        
-        
-        #y = np.array(y, dtype='float32')
-        
-        if self.do_augmentation:
-            X_gen = self.augmentor.flow(X, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-            y_gen = self.augmentor_mask.flow(y, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-
-
-            return next(X_gen), next(y_gen)
-        else:
-            return X,y
-    
 #%% TEST GENERATOR
-    
-#
-#Label_PATH = '/labels/{}/'.format(ORIENTATION)
-#DATA_PATH = '/slices/{}/'.format(ORIENTATION)
-#partition = np.load(PARTITIONS_PATH, allow_pickle=True).item()
+
+# partition = np.load(PARTITIONS_PATH, allow_pickle=True).item()
 # # Parameters
-#params_train = {'dim': (256,256),
-#          'batch_size': 6,
-#          'n_classes': 7,
-#          'n_channels': 1,
-#          'shuffledata': True,
-#          'data_path':DATA_PATH,
-#          'labels_path':Label_PATH,
-#           'do_augmentation':True}
-#
-#params_val = {'dim': (256,256),
-#          'batch_size': 6,
-#          'n_classes': 7,
-#          'n_channels': 1,
-#          'shuffledata': False,
-#          'data_path':DATA_PATH,
-#          'labels_path':Label_PATH,
-#           'do_augmentation':False}
-#
-#
-#
+# params_train = {'dim': (256,256),
+#           'batch_size': 6,
+#           'n_classes': 7,
+#           'n_channels': 1,
+#           'shuffledata': True,
+#           'data_path':DATA_PATH,
+#           'labels_path':Label_PATH,
+#           'coords_path':COORDS_PATH,
+#           'do_augmentation':False,
+#           'use_slice_location':True,
+#           'debug':True}
+
+# params_val = {'dim': (256,256),
+#           'batch_size': 6,
+#           'n_classes': 7,
+#           'n_channels': 1,
+#           'shuffledata': False,
+#           'data_path':DATA_PATH,
+#           'labels_path':Label_PATH,
+#           'coords_path':COORDS_PATH,
+#           'do_augmentation':False,
+#           'use_slice_location':True}
+
+
+
 # # Generators
-#training_generator = DataGenerator(partition['train'], **params_train)
-#
-#training_generator.seed = 1
-#
-#X, y = training_generator.__getitem__(2)
-#
-#for INDEX in range(6):
-#    plt.figure(INDEX, figsize=(15,15))
-#    plt.subplot(1,2,1)
-#    plt.imshow(X[INDEX,:,:,0])
-#    plt.subplot(1,2,2)
-##    plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
-#    plt.imshow(y[INDEX,:,:,0])#; plt.colorbar()
-#
+# training_generator = DataGenerator2(partition['train'], **params_train)
+
+# training_generator.seed = 1
+
+# training_generator.list_IDs
+
+# output = training_generator.__getitem__(0)
+
+# X,y, ids = output
 
 
-#y = model.predict(X)
-#for INDEX in range(6):
-#    plt.figure(INDEX)
-#    plt.subplot(1,2,1)
-#    plt.imshow(X[INDEX,:,:,0])
-#    plt.subplot(1,2,2)
-#    plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
-#
+# positional_encoding = X[1]
 
-#%%
+# slicenr = positional_encoding[:,:,:,0]
+# xgrid = positional_encoding[:,:,:,1]
+# ygrid = positional_encoding[:,:,:,2]
 
 
-class MyHistory(tf.keras.callbacks.Callback):
-    def __init__(self, OUT, NAME, loss=[], val_loss=[], 
-                 dice_coef_multilabel_bin0=[], dice_coef_multilabel_bin1=[], 
-                 dice_coef_multilabel_bin2=[], dice_coef_multilabel_bin3=[], 
-                 dice_coef_multilabel_bin4=[], dice_coef_multilabel_bin5=[], dice_coef_multilabel_bin6=[], 
-                 val_dice_coef_multilabel_bin0=[], val_dice_coef_multilabel_bin1=[], 
-                 val_dice_coef_multilabel_bin2=[], val_dice_coef_multilabel_bin3=[], 
-                 val_dice_coef_multilabel_bin4=[], val_dice_coef_multilabel_bin5=[], val_dice_coef_multilabel_bin6=[]):
-        
-        self.OUT = OUT
-        self.NAME = NAME  
-        
-        self.loss = loss
-        self.dice_coef_multilabel_bin0 = dice_coef_multilabel_bin0
-        self.dice_coef_multilabel_bin1 = dice_coef_multilabel_bin1
-        self.dice_coef_multilabel_bin2 = dice_coef_multilabel_bin2
-        self.dice_coef_multilabel_bin3 = dice_coef_multilabel_bin3
-        self.dice_coef_multilabel_bin4 = dice_coef_multilabel_bin4
-        self.dice_coef_multilabel_bin5 = dice_coef_multilabel_bin5
-        self.dice_coef_multilabel_bin6 = dice_coef_multilabel_bin6
-
-        self.val_loss = val_loss
-        self.val_dice_coef_multilabel_bin0 = val_dice_coef_multilabel_bin0
-        self.val_dice_coef_multilabel_bin1 = val_dice_coef_multilabel_bin1
-        self.val_dice_coef_multilabel_bin2 = val_dice_coef_multilabel_bin2
-        self.val_dice_coef_multilabel_bin3 = val_dice_coef_multilabel_bin3
-        self.val_dice_coef_multilabel_bin4 = val_dice_coef_multilabel_bin4
-        self.val_dice_coef_multilabel_bin5 = val_dice_coef_multilabel_bin5
-        self.val_dice_coef_multilabel_bin6 = val_dice_coef_multilabel_bin6        
-        
-#    def on_train_begin(self, logs={}):
-#
-#        self.loss = []
-#        self.dice_coef_multilabel_bin0 = []
-#        self.dice_coef_multilabel_bin1 = []
-#        self.dice_coef_multilabel_bin2 = []
-#        self.dice_coef_multilabel_bin3 = []
-#        self.dice_coef_multilabel_bin4 = []
-#        self.dice_coef_multilabel_bin5 = []
-#        self.dice_coef_multilabel_bin6 = []
-#
-#        self.val_loss = []
-#        self.val_dice_coef_multilabel_bin0 = []
-#        self.val_dice_coef_multilabel_bin1 = []
-#        self.val_dice_coef_multilabel_bin2 = []
-#        self.val_dice_coef_multilabel_bin3 = []
-#        self.val_dice_coef_multilabel_bin4 = []
-#        self.val_dice_coef_multilabel_bin5 = []
-#        self.val_dice_coef_multilabel_bin6 = []
-
-#    def on_batch_end(self, batch, logs={}):
-#        self.loss.append(logs.get('loss'))
-#        self.dice_coef_multilabel_bin1.append(logs.get('dice_coef_multilabel_bin1'))
-#        
-    def on_epoch_end(self, epoch, logs={}):
-        self.loss.append(logs.get('loss'))
-        self.dice_coef_multilabel_bin0.append(logs.get('dice_coef_multilabel_bin0'))
-        self.dice_coef_multilabel_bin1.append(logs.get('dice_coef_multilabel_bin1'))
-        self.dice_coef_multilabel_bin2.append(logs.get('dice_coef_multilabel_bin2'))
-        self.dice_coef_multilabel_bin3.append(logs.get('dice_coef_multilabel_bin3'))
-        self.dice_coef_multilabel_bin4.append(logs.get('dice_coef_multilabel_bin4'))
-        self.dice_coef_multilabel_bin5.append(logs.get('dice_coef_multilabel_bin5'))
-        self.dice_coef_multilabel_bin6.append(logs.get('dice_coef_multilabel_bin6'))
+# plt.imshow(slicenr[0,:,:]); plt.colorbar()
+# plt.imshow(xgrid[0,:,:]); plt.colorbar()
+# plt.imshow(ygrid[0,:,:]); plt.colorbar()
 
 
-        self.val_loss.append(logs.get('val_loss'))
-        self.val_dice_coef_multilabel_bin0.append(logs.get('val_dice_coef_multilabel_bin0'))
-        self.val_dice_coef_multilabel_bin1.append(logs.get('val_dice_coef_multilabel_bin1'))
-        self.val_dice_coef_multilabel_bin2.append(logs.get('val_dice_coef_multilabel_bin2'))
-        self.val_dice_coef_multilabel_bin3.append(logs.get('val_dice_coef_multilabel_bin3'))
-        self.val_dice_coef_multilabel_bin4.append(logs.get('val_dice_coef_multilabel_bin4'))
-        self.val_dice_coef_multilabel_bin5.append(logs.get('val_dice_coef_multilabel_bin5'))
-        self.val_dice_coef_multilabel_bin6.append(logs.get('val_dice_coef_multilabel_bin6'))
-
-
-        plt.figure(figsize=(15,5))
-        
-        plt.subplot(1,3,1); 
-        plt.title('Loss')
-        plt.plot(self.loss)
-        plt.plot(self.val_loss)
-        plt.legend(['Train','Val'])
-        plt.grid()
-        
-        plt.subplot(1,3,2); plt.title('Dice')
-        plt.plot(self.dice_coef_multilabel_bin0, label='Bg')
-        plt.plot(self.dice_coef_multilabel_bin1, label='Air')
-        plt.plot(self.dice_coef_multilabel_bin2, label='GM')
-        plt.plot(self.dice_coef_multilabel_bin3, label='WM')
-        plt.plot(self.dice_coef_multilabel_bin4, label='CSF')
-        plt.plot(self.dice_coef_multilabel_bin5, label='Bone')
-        plt.plot(self.dice_coef_multilabel_bin6, label='Skin')
-        plt.ylim([0,1])
-        plt.legend(loc='upper left', bbox_to_anchor=(0.95, 0.5), ncol=1, fancybox=True, shadow=True)
-        plt.grid()
-        
-        
-        plt.subplot(1,3,3); plt.title('Dice Val')
-        plt.plot(self.val_dice_coef_multilabel_bin0, label='Bg')
-        plt.plot(self.val_dice_coef_multilabel_bin1, label='Air')
-        plt.plot(self.val_dice_coef_multilabel_bin2, label='GM')
-        plt.plot(self.val_dice_coef_multilabel_bin3, label='WM')
-        plt.plot(self.val_dice_coef_multilabel_bin4, label='CSF')
-        plt.plot(self.val_dice_coef_multilabel_bin5, label='Bone')
-        plt.plot(self.val_dice_coef_multilabel_bin6, label='Skin')
-        #plt.legend(loc='upper left', bbox_to_anchor=(0.95, 0.5), ncol=1, fancybox=True, shadow=True)
-        plt.grid()
-        plt.ylim([0,1])
-        
-        plt.tight_layout()   
-        
-        plt.savefig(self.OUT + self.NAME + '/Training_curves.png')
-        plt.close()
-
-def freeze_layers(model):
-    model_type = type(model) 
-
-    for i in model.layers:
-        i.trainable = False
-        if type(i) == model_type:
-            freeze_layers(i)
-    return model
-
-
-def save_model_and_weights(model, NAME, FOLDER):    
-    model_to_save = tf.keras.models.clone_model(model)
-    model_to_save.set_weights(model.get_weights())
-    model_to_save = freeze_layers(model_to_save)
-    model_to_save.save_weights(FOLDER + NAME + '_weights.h5')
-    model_to_save.save(FOLDER + NAME + '.h5')       
-
-class my_model_checkpoint(tf.keras.callbacks.Callback):
+# for INDEX in range(6):
+#     plt.figure(INDEX, figsize=(15,15))
+#     plt.subplot(2,2,1); plt.title('slice:' + str(slicenr[INDEX][0][0]*256))
+#     plt.imshow(X[0][INDEX,:,:,0], cmap='gray')
+#     plt.subplot(2,2,2)
+#     plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
+#     plt.subplot(2,2,3)
+#     plt.imshow(ygrid[INDEX])    
     
-    def __init__(self, MODEL_PATH, MODEL_NAME, val_loss = [999]):
-        self.MODEL_PATH = MODEL_PATH
-        self.MODEL_NAME = MODEL_NAME    
-        self.val_loss = val_loss
+#     plt.imshow(y[INDEX,:,:,2])#; plt.colorbar()
 
-    def on_epoch_end(self, epoch, logs={}):
-        min_val_loss = min(self.val_loss)
-        current_val_loss = logs.get('val_loss')
-        self.val_loss.append(current_val_loss)
-        print('Min loss so far: {}, new loss: {}'.format(min_val_loss, current_val_loss))
-        if current_val_loss < min_val_loss :
-            print('New best model! Epoch: {}'.format(epoch))
-            save_model_and_weights(self.model, self.MODEL_NAME, self.MODEL_PATH)
-        else :
-            save_model_and_weights(self.model, '/last_model', self.MODEL_PATH)            
+
+# model = UNet_v0_2DTumorSegmenter_V2(input_shape =  (256,256,1), pool_size=(2, 2),
+#                                   initial_learning_rate=0.001, 
+#                                   deconvolution=True, depth=DEPTH, n_base_filters=16,
+#                                   activation_name="softmax", L2=1e-5, use_batch_norm=False,
+#                                   add_spatial_prior=ADD_SPATIAL_PRIOR)
+   
+# model.input
+
+# X, Y, ids = training_generator.__getitem__(0)
+
+
+# X[1] = X[1]/256.
+
+# yhat = model.predict([X[0],X[1]])
+
+# model.fit([X[0],X[1]], Y, epochs=100)
+
+# yhat = model.predict([X[0],X[1]])
+
+
+# plt.imshow(X[0][3,:,:,0])
+# plt.imshow(np.argmax(Y,-1)[3,:,:])
+
+# plt.imshow(np.argmax(yhat,-1)[3,:,:])
+
+
+
+
+
+# for INDEX in range(6):
+#     plt.figure(INDEX)
+#     plt.subplot(1,3,1)
+#     plt.imshow(X[0][INDEX,:,:,0])
+#     plt.subplot(1,3,2)
+#     plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
+# #
+#     plt.subplot(1,3,3)
+#     plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
 
 
 
 
 #%%  TRAINING SESSIONS
 
-Label_PATH = '/labels/{}/'.format(ORIENTATION)
-DATA_PATH = '/slices/{}/'.format(ORIENTATION)
+
+if PARTITIONS_PATH == '':
+    print('No pre-saved partition. Creating new partition..')
+
+    available_data = os.listdir(DATA_PATH)
+    segmented_data = os.listdir(Label_PATH)
+    
+    available_data.sort()
+    segmented_data.sort()
+    
+    print('Found {} slices'.format(len(available_data)))
+    
+    subjects = list(set([x.split('_')[0] for x in available_data]))
+    
+    print('From {} subjects'.format(len(subjects)))
+    
+    N_TRAIN = int(len(subjects)*0.9)
+    
+    train_subj = np.random.choice(subjects, size=N_TRAIN, replace=False)
+    
+    test_subj = [x for x in subjects if x not in train_subj]
+    
+    val_subj = np.random.choice(train_subj, size=int(N_TRAIN*0.1), replace=False)
+    
+    train_subj = [x for x in train_subj if x not in val_subj]
+    
+    assert set(train_subj).intersection(set(test_subj)) == set()
+    assert set(train_subj).intersection(set(val_subj)) == set()
+    assert set(val_subj).intersection(set(test_subj)) == set()
+    
+    assert len(train_subj) + len(val_subj) + len(test_subj) == len(subjects)
 
 
-#available_data = os.listdir(DATA_PATH)
-#segmented_data = os.listdir(Label_PATH)
-#
-#available_data.sort()
-#segmented_data.sort()
-#
-#print('Found {} slices'.format(len(available_data)))
-#
-#N = len(available_data)
-#N_train = int(N*0.95)
-#N_val = N - N_train
-#
-#train_indexes = range(0,N)
-#val_indexes = np.random.choice(range(0,N), replace=False, size=N_val)
-#train_indexes = list(set(train_indexes) - set(val_indexes))
-#
-#assert set(train_indexes).intersection(set(val_indexes)) == set()
-#len(train_indexes), len(val_indexes)
-#
-#train_images = [available_data[i] for i in train_indexes]
-#val_images = [available_data[i] for i in val_indexes]
-#
-#partition = {'train':train_images,'validation':val_images}
-#
-#len(partition['train']), len(partition['validation'])
-#
-#np.save('/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/DATA/data.npy', partition)
-#
+
+
+    train_images = []
+    val_images = []
+    for subj in train_subj:
+        train_images.extend([x for x in available_data if x.startswith(subj)])
+        
+    for subj in val_subj:
+        val_images.extend([x for x in available_data if x.startswith(subj)])
+    
+    
+    len(train_images), len(val_images)
+    
+    partition = {'train':train_images,'validation':val_images, 'test':test_subj}
+    
+    np.save('/media/HDD/MultiAxial/Data/Processed_New_MCS/partitions.npy', partition)
 
 
 
-partition = np.load(PARTITIONS_PATH, allow_pickle=True).item()
+else:
+    partition = np.load(PARTITIONS_PATH, allow_pickle=True).item()
+
+    assert set([x[:6] for x in partition['train']]).intersection(set([x[:6] for x in partition['validation']])) == set()
+    
+    len(set([x[:6] for x in partition['train']])), len(set([x[:6] for x in partition['validation']]))
+    len(partition['train']), len(partition['validation'])
+    
+    
+    set([x.split('_')[0] for x in partition['train']])
+    set([x.split('_')[0] for x in partition['validation']])
+    
+    all_data = partition['train'] + partition['validation']
 
 
 #%%
 
 # Parameters
 params_train = {'dim': (256,256),
-          'batch_size': BATCH_SIZE,
+          'batch_size': 6,
           'n_classes': 7,
           'n_channels': 1,
           'shuffledata': True,
           'data_path':DATA_PATH,
           'labels_path':Label_PATH,
-           'do_augmentation':DATA_AUGMENTATION}
+          'coords_path':COORDS_PATH,
+          'do_augmentation':False,
+          'use_slice_location':True,
+          'debug':False}
 
 params_val = {'dim': (256,256),
-          'batch_size': BATCH_SIZE,
+          'batch_size': 6,
           'n_classes': 7,
           'n_channels': 1,
           'shuffledata': False,
           'data_path':DATA_PATH,
           'labels_path':Label_PATH,
-           'do_augmentation':False}
+          'coords_path':COORDS_PATH,
+          'do_augmentation':False,
+          'use_slice_location':True}
 
 
-model = UNet_v0_2DTumorSegmenter(input_shape =  (256,256,1), pool_size=(2, 2),
+#%%
+model = UNet_v0_2DTumorSegmenter_V2(input_shape =  (256,256,1), pool_size=(2, 2),
                                  initial_learning_rate=LR, 
                                  deconvolution=True, depth=DEPTH, n_base_filters=N_BASE_FILTERS,
-                                 activation_name="softmax", L2=1e-5, use_batch_norm=False)
+                                 activation_name="softmax", L2=1e-5, use_batch_norm=False,
+                                 add_spatial_prior=ADD_SPATIAL_PRIOR)
    
 model.summary()
 
+
+
+
+
+# SLICE = 'NC016_slice62.npy'
+
+# x = np.load(DATA_PATH + SLICE)
+# y = np.load(Label_PATH + SLICE)
+# p = np.load(COORDS_PATH + SLICE)
+
+# x.shape
+# y.shape
+# p.shape
+
+# plt.imshow(x)
+# plt.imshow(y)
+# plt.imshow(p[:,:,0])
+# plt.imshow(p[:,:,1])
+# plt.imshow(p[:,:,2])
+
+
+# x = np.expand_dims(x,-1)
+# x = np.expand_dims(x,0)
+# p = np.expand_dims(p,0)
+
+
+# yhat = model.predict([x, p])
+
+# plt.imshow(np.argmax(yhat,-1)[0])
+
+
+# y = np.expand_dims(y, -1)
+# y = np.expand_dims(y, 0)
+# y -= 1
+# y = tf.keras.utils.to_categorical(y, num_classes=7)
+
+# model.evaluate(np.array([np.expand_dims(x,-1)]), y)
+
+
+
+#%%
 
 if not os.path.exists(OUTPUT_PATH + NAME):
     os.mkdir(OUTPUT_PATH + NAME)
@@ -693,13 +379,9 @@ if LOAD_MODEL:
 
 #%%
 
-
 csv_logger = tf.keras.callbacks.CSVLogger(OUTPUT_PATH+NAME + '/csvLogger.log', 
                                      separator=',', 
                                      append=True)
-
-
-
 
 myEarlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', 
                                                 min_delta=0, 
@@ -709,15 +391,16 @@ myEarlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
                                                 baseline=None, 
                                                 restore_best_weights=False)
 
-
 # Generators
-training_generator = DataGenerator(partition['train'], **params_train)
-validation_generator = DataGenerator(partition['validation'], **params_val)
+training_generator = DataGenerator2(partition['train'], **params_train)
+validation_generator = DataGenerator2(partition['validation'], **params_val)
 
 tf.keras.utils.plot_model(model, to_file=OUTPUT_PATH + NAME + '/Model.png', show_shapes=True)
 with open(OUTPUT_PATH + NAME + '/modelsummary.txt', 'w') as f:
-    
         model.summary(print_fn=lambda x: f.write(x + '\n'))
+        
+        
+        
         
 # Train model on dataset
 history = model.fit_generator(generator=training_generator,
@@ -730,7 +413,6 @@ history = model.fit_generator(generator=training_generator,
                             epochs = EPOCHS,
                             shuffle=True,
                             callbacks=[Custom_History, csv_logger, my_custom_checkpoint, myEarlyStop])
-
 
 
 df = pd.read_csv(OUTPUT_PATH+NAME + '/csvLogger.log')
