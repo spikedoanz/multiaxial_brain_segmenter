@@ -213,11 +213,6 @@ plt.imshow(np.rot90(sagittal_segmentation[:,SLICE])); plt.title('Sagittal segmen
 #%%
 
 
-model_sagittal.layers
-
-#%%
-
-
 emb = model_sagittal.layers[-12].get_weights()[0]
 
 emb.shape

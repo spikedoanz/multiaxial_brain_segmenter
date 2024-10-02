@@ -13,6 +13,12 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 
 
+from tensorflow.keras import Input, Model
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Activation, BatchNormalization, Conv2DTranspose, concatenate
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import regularizers
+
+
 
 
 def dice_loss(y_true, y_pred):
@@ -77,13 +83,6 @@ def dice_coef_multilabel_bin6(y_true, y_pred):
 
 
 #%%
-
-
-from tensorflow.keras import Input, Model
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Activation, BatchNormalization, Conv2DTranspose
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras import regularizers
-from tensorflow.keras.layers import concatenate
 
 
 
