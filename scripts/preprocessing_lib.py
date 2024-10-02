@@ -47,24 +47,31 @@ def create_coordinate_matrix(shape, anterior_commissure):
 # nii = nib.load('/home/deeperthought/Projects/MultiPriors/Adam_Buchwald/P906/NIFTY/P906_T1_original.nii')
 # anterior_commissure = [95, 152, 153]
 
-def preprocess_head_MRI(nii, nii_seg=None, anterior_commissure=None):
-    'Anterior commissure found using MRIcron which already rotates to RAS on display' 
+def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, anterior_commissure: tuple = None):
+    """
+    Preprocesses a head MRI image.
     
+    Args:
+      nii: A NIfTI image object representing the MRI scan.
+      nii_seg: (Optional) A NIfTI image object representing the segmentation mask with 7 classes.
+      anterior_commissure: (Optional) A tuple representing the coordinates of the anterior commissure. If None, it uses the center of the image.
+    
+    Returns:
+      nii_out: The preprocessed MRI image as a NIfTI object.
+      nii_seg_out: (Optional) The preprocessed segmentation mask as a NIfTI object, if provided.
+      coords: A NumPy array containing the coordinates of the anterior commissure relative to the preprocessed image.
+      anterior_commissure: The updated coordinates of the anterior commissure after preprocessing.
+    """    
     assert nii.shape == nii_seg.shape
-    
     if anterior_commissure is None:
         anterior_commissure = nii.shape[0]//2, nii.shape[1]//2, nii.shape[2]//2
     else:
         print(f'anterior commissure given: {anterior_commissure}')
-    
     orientation = nib.aff2axcodes(nii.affine)
     
     if ''.join(orientation) != 'RAS':
-    
         print(f'Image orientation : {orientation}. Changing to RAS..')
-        
         nii = reorient(nii, "RAS")
-        
         if nii_seg is not None:
             nii_seg = reorient(nii_seg, "RAS")
    
@@ -76,12 +83,8 @@ def preprocess_head_MRI(nii, nii_seg=None, anterior_commissure=None):
     ############### ISOTROPIC #######################
     
     res = nii.header['pixdim'][1:4]
-    
     img = nii.get_fdata()
-    
-    
     new_shape = np.array(np.array(nii.shape)*res, dtype='int')
-    
     if np.any(np.array(nii.shape) != new_shape):
         img = resize(img, new_shape, anti_aliasing=True, preserve_range=True)
         if nii_seg is not None: img_seg = resize(img_seg, new_shape, order=0, anti_aliasing=True, preserve_range=True)
@@ -143,16 +146,11 @@ def preprocess_head_MRI(nii, nii_seg=None, anterior_commissure=None):
         if nii_seg is not None: img_seg = np.pad(img_seg, ((0,0),(0,0),(pad3//2, pad3//2+pad3%2)))
         anterior_commissure[2] += pad3//2
 
-    anterior_commissure = np.array(anterior_commissure, dtype='int')
-
     coords = create_coordinate_matrix(img.shape, anterior_commissure)        
-    
-    nii_out = nib.Nifti1Image(img, nii.affine)
-    
+        
     if nii_seg is not None:
-        nii_seg_out = nib.Nifti1Image(np.array(img_seg, dtype='int8'), nii.affine)
-        return nii_out, nii_seg_out, np.array(coords, dtype='int16'), anterior_commissure
+        return nib.Nifti1Image(img, nii.affine), nib.Nifti1Image(np.array(img_seg, dtype='int8'), nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
 
     else:
-        return nii_out, np.array(coords, dtype='int16'), anterior_commissure
+        return nib.Nifti1Image(img, nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
         
