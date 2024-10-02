@@ -35,7 +35,7 @@ if __name__ == '__main__':
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    from preProcessing_lib import preprocess_head_MRI
+    from preprocessing_lib import preprocess_head_MRI
     
     from utils import Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
     

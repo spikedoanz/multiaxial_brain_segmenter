@@ -16,7 +16,7 @@ if __name__ == '__main__':
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    from preProcessing_lib import preprocess_head_MRI
+    from preprocessing_lib import preprocess_head_MRI
     
     PATH = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/'
     SEG_PATH = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/'
