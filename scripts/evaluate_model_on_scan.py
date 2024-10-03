@@ -32,6 +32,15 @@ elif tf.__version__[0] == '2':
 
 
 
+# scan = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/PA020_1mm_ras.nii'
+# segmentation = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/PA020_segmentation_fixed.nii'
+# anterior_commissure = [88, 135, 157]
+
+
+scan = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/Andy.nii'
+segmentation = None
+anterior_commissure = [102,	141, 163]
+
 if __name__ == '__main__':
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -66,16 +75,13 @@ if __name__ == '__main__':
     if CORONAL_MODEL_SESSION_PATH is not None:
         model_coronal = tf.keras.models.load_model(CORONAL_MODEL_SESSION_PATH + 'best_model.h5', 
                                            custom_objects = my_custom_objects)
-        
-    scan = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/PA020_1mm_ras.nii'
-    segmentation = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/PA020_segmentation_fixed.nii'
-    anterior_commissure = [88, 135, 157]
-       
-   
+           
     print(scan)
     nii = nib.load(scan)
-    nii_seg = nib.load(segmentation)
-
+    if segmentation is not None:
+        nii_seg = nib.load(segmentation)
+    else:
+        nii_seg = None
     print(nii.shape)
     
     subject = scan.split('/')[-1].split('_')[0].replace('.nii','')
@@ -102,7 +108,7 @@ if __name__ == '__main__':
     
     model_segmentation = np.argmax(yhat, axis=-1)        
     
-    INDEX = 100
+    INDEX = 120
     plt.subplot(121)
     plt.imshow(np.rot90(img[INDEX]))
     plt.subplot(122)

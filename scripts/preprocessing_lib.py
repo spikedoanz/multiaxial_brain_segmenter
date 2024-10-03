@@ -62,7 +62,8 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
       coords: A NumPy array containing the coordinates of the anterior commissure relative to the preprocessed image.
       anterior_commissure: The updated coordinates of the anterior commissure after preprocessing.
     """    
-    assert nii.shape == nii_seg.shape
+    if nii_seg is not None:
+        assert nii.shape == nii_seg.shape
     if anterior_commissure is None:
         anterior_commissure = nii.shape[0]//2, nii.shape[1]//2, nii.shape[2]//2
     else:
@@ -152,5 +153,5 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
         return nib.Nifti1Image(img, nii.affine), nib.Nifti1Image(np.array(img_seg, dtype='int8'), nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
 
     else:
-        return nib.Nifti1Image(img, nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
+        return nib.Nifti1Image(img, nii.affine), None, np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
         
