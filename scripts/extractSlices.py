@@ -18,9 +18,9 @@ if __name__ == '__main__':
     
     from preprocessing_lib import preprocess_head_MRI
     
-    PATH = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/'
-    SEG_PATH = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/'
-    anterior_commissure_df = pd.read_csv('/media/HDD/MultiAxial/Data/Processed_New_MCS_AnteriorCommissure.csv')
+    # PATH = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/'
+    # SEG_PATH = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/'
+    # anterior_commissure_df = pd.read_csv('/media/HDD/MultiAxial/Data/Processed_New_MCS_AnteriorCommissure.csv')
     
     # PATH = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/'
     # anterior_commissure_df = pd.read_csv('/media/HDD/MultiAxial/Data/Normal_Heads_Anterior_Commissure.csv')
@@ -30,9 +30,9 @@ if __name__ == '__main__':
     # anterior_commissure_df = pd.read_csv('/media/HDD/MultiAxial/Data/AphasicStroke_AnteriorCommissure.csv')
     
     
-    # PATH = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/MRI/'
-    # SEG_PATH = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/GT/'
-    # anterior_commissure_df = pd.read_csv('/media/HDD/MultiAxial/Data/AdamBuchwald_Anterior_Commissure.csv')
+    PATH = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/MRI/'
+    SEG_PATH = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/GT/'
+    anterior_commissure_df = pd.read_csv('/media/HDD/MultiAxial/Data/AdamBuchwald_Anterior_Commissure.csv')
     
     
     scans = [PATH + x for x in os.listdir(PATH)]
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     
     # OUTPUT_PATH = '/media/HDD/MultiAxial/Data/Slices/'
     
-    OUTPUT_PATH = '/home/deeperthought/Projects/Multiaxial/Data/New_slices_coordinates/'
+    OUTPUT_PATH = '/media/HDD/MultiAxial/Data/New_slices_coordinates/'
     
     if not os.path.exists(OUTPUT_PATH):
         os.makedirs(OUTPUT_PATH + 'sagittal/MRI/')
@@ -56,7 +56,7 @@ if __name__ == '__main__':
         os.makedirs(OUTPUT_PATH + 'axial/coords/')
 
         
-    for scan in scans[:1]:
+    for scan in scans:
         print(scan)
         nii = nib.load(scan)
         print(nii.shape)

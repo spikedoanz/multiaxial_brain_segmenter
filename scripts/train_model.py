@@ -32,19 +32,20 @@ import pandas as pd
 from tensorflow.keras.optimizers import Adam
 
 from utils import dice_loss, dice_coef, Generalised_dice_coef_multilabel7,dice_coef_multilabel_bin0,dice_coef_multilabel_bin1, dice_coef_multilabel_bin2,dice_coef_multilabel_bin3, dice_coef_multilabel_bin4,dice_coef_multilabel_bin5,dice_coef_multilabel_bin6
-from utils import UNet_v0_2DTumorSegmenter, UNet_v0_2DTumorSegmenter_V2
+from utils import UNet_v0_2DTumorSegmenter_V2
 from utils import MyHistory, my_model_checkpoint
-from utils import DataGenerator, DataGenerator2
+from utils import DataGenerator2
 
 ORIENTATION = 'sagittal'
 #ORIENTATION = 'axial'
 #ORIENTATION = 'coronal'
 
-# PARTITIONS_PATH = ''
 PARTITIONS_PATH = '/media/HDD/MultiAxial/Data/partitions.npy'
 
-OUTPUT_PATH = '/media/HDD/MultiAxial/Sessions/' 
+OUTPUT_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/' 
 
+STORED_SLICES_PATH = '/media/HDD/MultiAxial/Data/New_slices_coordinates/'
+    
 EPOCHS = 2
 BATCH_SIZE = 6
 DEPTH = 6
@@ -59,123 +60,17 @@ LOAD_MODEL = False
 
 NAME = f'{ORIENTATION}Segmenter_PositionalEncoding_{EPOCHS}epochs_depth{DEPTH}_baseFilters{N_BASE_FILTERS}'
 
-MODEL_SESSION_PATH = f'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/{NAME}/'
-     
-DATA_PATH = f'/media/HDD/MultiAxial/Data/New_Slices_Coordinates/{ORIENTATION}/MRI/'
-Label_PATH =  f'/media/HDD/MultiAxial/Data/New_Slices_Coordinates/{ORIENTATION}/GT/'
-COORDS_PATH = f'/media/HDD/MultiAxial/Data/New_Slices_Coordinates/{ORIENTATION}/coords/'
-
-#%% TEST GENERATOR
-
-# partition = np.load(PARTITIONS_PATH, allow_pickle=True).item()
-# # Parameters
-# params_train = {'dim': (256,256),
-#           'batch_size': 6,
-#           'n_classes': 7,
-#           'n_channels': 1,
-#           'shuffledata': True,
-#           'data_path':DATA_PATH,
-#           'labels_path':Label_PATH,
-#           'coords_path':COORDS_PATH,
-#           'do_augmentation':False,
-#           'use_slice_location':True,
-#           'debug':True}
-
-# params_val = {'dim': (256,256),
-#           'batch_size': 6,
-#           'n_classes': 7,
-#           'n_channels': 1,
-#           'shuffledata': False,
-#           'data_path':DATA_PATH,
-#           'labels_path':Label_PATH,
-#           'coords_path':COORDS_PATH,
-#           'do_augmentation':False,
-#           'use_slice_location':True}
-
-
-
-# # Generators
-# training_generator = DataGenerator2(partition['train'], **params_train)
-
-# training_generator.seed = 1
-
-# training_generator.list_IDs
-
-# output = training_generator.__getitem__(0)
-
-# X,y, ids = output
-
-
-# positional_encoding = X[1]
-
-# slicenr = positional_encoding[:,:,:,0]
-# xgrid = positional_encoding[:,:,:,1]
-# ygrid = positional_encoding[:,:,:,2]
-
-
-# plt.imshow(slicenr[0,:,:]); plt.colorbar()
-# plt.imshow(xgrid[0,:,:]); plt.colorbar()
-# plt.imshow(ygrid[0,:,:]); plt.colorbar()
-
-
-# for INDEX in range(6):
-#     plt.figure(INDEX, figsize=(15,15))
-#     plt.subplot(2,2,1); plt.title('slice:' + str(slicenr[INDEX][0][0]*256))
-#     plt.imshow(X[0][INDEX,:,:,0], cmap='gray')
-#     plt.subplot(2,2,2)
-#     plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
-#     plt.subplot(2,2,3)
-#     plt.imshow(ygrid[INDEX])    
-    
-#     plt.imshow(y[INDEX,:,:,2])#; plt.colorbar()
-
-
-# model = UNet_v0_2DTumorSegmenter_V2(input_shape =  (256,256,1), pool_size=(2, 2),
-#                                   initial_learning_rate=0.001, 
-#                                   deconvolution=True, depth=DEPTH, n_base_filters=16,
-#                                   activation_name="softmax", L2=1e-5, use_batch_norm=False,
-#                                   add_spatial_prior=ADD_SPATIAL_PRIOR)
-   
-# model.input
-
-# X, Y, ids = training_generator.__getitem__(0)
-
-
-# X[1] = X[1]/256.
-
-# yhat = model.predict([X[0],X[1]])
-
-# model.fit([X[0],X[1]], Y, epochs=100)
-
-# yhat = model.predict([X[0],X[1]])
-
-
-# plt.imshow(X[0][3,:,:,0])
-# plt.imshow(np.argmax(Y,-1)[3,:,:])
-
-# plt.imshow(np.argmax(yhat,-1)[3,:,:])
-
-
-
-
-
-# for INDEX in range(6):
-#     plt.figure(INDEX)
-#     plt.subplot(1,3,1)
-#     plt.imshow(X[0][INDEX,:,:,0])
-#     plt.subplot(1,3,2)
-#     plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
-# #
-#     plt.subplot(1,3,3)
-#     plt.imshow(np.argmax(y[INDEX,:,:,:], -1))#; plt.colorbar()
-
-
 
 
 #%%  TRAINING SESSIONS
 
+MODEL_SESSION_PATH = '/home/deeperthought/kirbyPRO_home/home/MultiAxial/Sessions/' + NAME
 
-if PARTITIONS_PATH == '':
+DATA_PATH = f'{STORED_SLICES_PATH}{ORIENTATION}/MRI/'
+Label_PATH =  f'{STORED_SLICES_PATH}{ORIENTATION}/GT/'
+COORDS_PATH = f'{STORED_SLICES_PATH}{ORIENTATION}/coords/'
+
+if PARTITIONS_PATH is None:
     print('No pre-saved partition. Creating new partition..')
 
     available_data = os.listdir(DATA_PATH)
@@ -273,46 +168,6 @@ model = UNet_v0_2DTumorSegmenter_V2(input_shape =  (256,256,1), pool_size=(2, 2)
                                  add_spatial_prior=ADD_SPATIAL_PRIOR)
    
 model.summary()
-
-
-
-
-
-# SLICE = 'NC016_slice62.npy'
-
-# x = np.load(DATA_PATH + SLICE)
-# y = np.load(Label_PATH + SLICE)
-# p = np.load(COORDS_PATH + SLICE)
-
-# x.shape
-# y.shape
-# p.shape
-
-# plt.imshow(x)
-# plt.imshow(y)
-# plt.imshow(p[:,:,0])
-# plt.imshow(p[:,:,1])
-# plt.imshow(p[:,:,2])
-
-
-# x = np.expand_dims(x,-1)
-# x = np.expand_dims(x,0)
-# p = np.expand_dims(p,0)
-
-
-# yhat = model.predict([x, p])
-
-# plt.imshow(np.argmax(yhat,-1)[0])
-
-
-# y = np.expand_dims(y, -1)
-# y = np.expand_dims(y, 0)
-# y -= 1
-# y = tf.keras.utils.to_categorical(y, num_classes=7)
-
-# model.evaluate(np.array([np.expand_dims(x,-1)]), y)
-
-
 
 #%%
 
