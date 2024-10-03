@@ -580,9 +580,6 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
             X[i,:,:,0] = np.load(self.data_path + ID)   # Here we add the path. ID can be the path
             y[i] = np.load(self.labels_path  + ID)
 
-            if not 0 in y[i]:
-                y[i] = y[i] - 1
-
             if self.use_slice_location:
                 positional_encoding_vector[i] =  np.load(self.coords_path + ID) /256.
 
