@@ -50,12 +50,11 @@ EPOCHS = 100
 BATCH_SIZE = 8
 DEPTH = 6
 N_BASE_FILTERS = 16
-LR=1e-4
+LR=5e-5
 activation_name = 'softmax'
 
 DATA_AUGMENTATION = False
 ADD_SPATIAL_PRIOR = True
-ADD_SPATIAL_EMBEDDING = False
 LOAD_MODEL = False
 
 NAME = f'{ORIENTATION}Segmenter_PositionalEncoding_{EPOCHS}epochs_depth{DEPTH}_baseFilters{N_BASE_FILTERS}'

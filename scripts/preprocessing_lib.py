@@ -65,7 +65,8 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
     if nii_seg is not None:
         assert nii.shape == nii_seg.shape
     if anterior_commissure is None:
-        anterior_commissure = nii.shape[0]//2, nii.shape[1]//2, nii.shape[2]//2
+        print('No anterior commissure location given.. centering to center of image..')
+        anterior_commissure = [nii.shape[0]//2, nii.shape[1]//2, nii.shape[2]//2]
     else:
         print(f'anterior commissure given: {anterior_commissure}')
     orientation = nib.aff2axcodes(nii.affine)

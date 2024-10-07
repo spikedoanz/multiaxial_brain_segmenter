@@ -511,9 +511,23 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
                     zoom_range=0.2,
                     horizontal_flip=True,
                     vertical_flip=True,
-                    fill_mode='nearest',  # ????
+                    interpolation=1,
+                    fill_mode='constant' # MRI, segmentation = constant.   Coordinates = nearest.  
                     
                 )
+
+        
+        self.augmentor_coordinates = tf.keras.preprocessing.image.ImageDataGenerator(
+                    rotation_range=25,
+                    shear_range=0.2,
+                    zoom_range=0.2,
+                    horizontal_flip=True,
+                    vertical_flip=True,
+                    interpolation=1,
+                    fill_mode='nearest',  # MRI, segmentation = constant.   Coordinates = nearest.  
+                    
+                )
+
         
         self.augmentor_mask = tf.keras.preprocessing.image.ImageDataGenerator( 
                     rotation_range=25,
@@ -521,7 +535,8 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
                     zoom_range=0.2,
                     horizontal_flip=True,
                     vertical_flip=True,
-                    fill_mode='constant'                    
+                    interpolation=0,
+                    fill_mode=0, cval=0                  
                     )
         
    

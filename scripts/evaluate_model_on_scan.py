@@ -24,8 +24,8 @@ elif tf.__version__[0] == '2':
     if gpus:
       # Restrict TensorFlow to only use the first GPU
       try:
-        tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
-        tf.config.experimental.set_memory_growth(gpus[0], True)
+        tf.config.experimental.set_visible_devices(gpus[1], 'GPU')
+        tf.config.experimental.set_memory_growth(gpus[1], True)
       except RuntimeError as e:
         # Visible devices must be set at program startup
         print(e)
@@ -41,7 +41,7 @@ scan = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/Andy.nii'
 segmentation = None
 anterior_commissure = [102,	141, 163]
 
-save_segmentation = True
+save_segmentation = False
 
 if __name__ == '__main__':
     
