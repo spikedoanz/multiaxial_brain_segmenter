@@ -36,8 +36,8 @@ from utils import UNet_v0_2DTumorSegmenter_V2
 from utils import MyHistory, my_model_checkpoint
 from utils import DataGenerator2
 
-ORIENTATION = 'sagittal'
-#ORIENTATION = 'axial'
+# ORIENTATION = 'sagittal'
+ORIENTATION = 'axial'
 #ORIENTATION = 'coronal'
 
 PARTITIONS_PATH = '/media/HDD/MultiAxial/Data/partitions.npy'
@@ -46,11 +46,11 @@ OUTPUT_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/'
 
 STORED_SLICES_PATH = '/media/HDD/MultiAxial/Data/New_slices_coordinates/'
     
-EPOCHS = 2
-BATCH_SIZE = 6
+EPOCHS = 100
+BATCH_SIZE = 8
 DEPTH = 6
-N_BASE_FILTERS = 4
-LR=5e-5
+N_BASE_FILTERS = 16
+LR=1e-4
 activation_name = 'softmax'
 
 DATA_AUGMENTATION = False

@@ -488,8 +488,8 @@ class DataGenerator(tf.keras.utils.Sequence): # inheriting from Sequence allows 
 class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows for multiprocessing functionalities
 
     def __init__(self, list_IDs, batch_size=4, dim=(256,256,1), n_channels=3,
-                 n_classes=2, shuffledata=True, data_path='', labels_path='', coords_path='', 
-                 do_augmentation=True, use_slice_location = True, debug=False):
+                 n_classes=2, shuffledata=True, data_path='', labels_path='', coords_path=None, 
+                 do_augmentation=True, debug=False):
         
         self.dim = dim
         self.batch_size = batch_size
@@ -504,7 +504,6 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
         self.seed = 0
         self.do_augmentation = do_augmentation
         self.debug = debug
-        self.use_slice_location = use_slice_location
         
         self.augmentor = tf.keras.preprocessing.image.ImageDataGenerator(
                     rotation_range=25,
@@ -539,24 +538,14 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
 
         # Generate data
-        X, y, pos = self.__data_generation(list_IDs_temp)
-        
-        # if self.do_augmentation:
-        #     for i in range(self.batch_size):
-        #         X[i] *= np.random.uniform(low=0.9, high=1.1, size=1)                                                     
-                    
+        X, y = self.__data_generation(list_IDs_temp)
+                
         y = tf.keras.utils.to_categorical(y, num_classes=self.n_classes) 
 
         if self.debug:
-            
-            return [X, pos], y, list_IDs_temp
+            return X, y, list_IDs_temp 
         else:
-            if self.use_slice_location:
-
-                return [X, pos], y
-
-            else:
-                return X, y
+            return X, y
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -571,7 +560,7 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
         X = np.empty((self.batch_size, self.dim[0], self.dim[1], self.n_channels))#, dtype='float32')
         y = np.zeros((self.batch_size, self.dim[0], self.dim[1]))
         
-        if self.use_slice_location:
+        if self.coords_path is not None:
             positional_encoding_vector = np.empty((self.batch_size,256,256, 3))
             
 
@@ -580,21 +569,29 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
             X[i,:,:,0] = np.load(self.data_path + ID)   # Here we add the path. ID can be the path
             y[i] = np.load(self.labels_path  + ID)
 
-            if self.use_slice_location:
+            if self.coords_path is not None:
                 positional_encoding_vector[i] =  np.load(self.coords_path + ID) /256.
 
         y = np.expand_dims(y, -1) #ImageDataGenerator needs arrays of rank 4. But wants channel dim = 1,3,4
         
         if self.do_augmentation:
             X_gen = self.augmentor.flow(X, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-            positional_encoding_vector_gen = self.augmentor.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-
+            
+            
             y_gen = self.augmentor_mask.flow(y, batch_size=self.batch_size, shuffle=False, seed=self.seed)
 
+            if self.coords_path is not None:
+                positional_encoding_vector_gen = self.augmentor.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
 
-            return next(X_gen), next(y_gen), next(positional_encoding_vector_gen)
+
+                return next(X_gen), next(y_gen), next(positional_encoding_vector_gen)
+            else:
+                return next(X_gen), next(y_gen)
         else:
-            return X,y,positional_encoding_vector
+            if self.coords_path is not None:
+                return [X,positional_encoding_vector],y
+            else:
+                return X,y
 
 #%%
 
@@ -628,30 +625,30 @@ class MyHistory(tf.keras.callbacks.Callback):
         self.val_dice_coef_multilabel_bin5 = val_dice_coef_multilabel_bin5
         self.val_dice_coef_multilabel_bin6 = val_dice_coef_multilabel_bin6        
         
-#    def on_train_begin(self, logs={}):
-#
-#        self.loss = []
-#        self.dice_coef_multilabel_bin0 = []
-#        self.dice_coef_multilabel_bin1 = []
-#        self.dice_coef_multilabel_bin2 = []
-#        self.dice_coef_multilabel_bin3 = []
-#        self.dice_coef_multilabel_bin4 = []
-#        self.dice_coef_multilabel_bin5 = []
-#        self.dice_coef_multilabel_bin6 = []
-#
-#        self.val_loss = []
-#        self.val_dice_coef_multilabel_bin0 = []
-#        self.val_dice_coef_multilabel_bin1 = []
-#        self.val_dice_coef_multilabel_bin2 = []
-#        self.val_dice_coef_multilabel_bin3 = []
-#        self.val_dice_coef_multilabel_bin4 = []
-#        self.val_dice_coef_multilabel_bin5 = []
-#        self.val_dice_coef_multilabel_bin6 = []
+    def on_train_begin(self, logs={}):
 
-#    def on_batch_end(self, batch, logs={}):
-#        self.loss.append(logs.get('loss'))
-#        self.dice_coef_multilabel_bin1.append(logs.get('dice_coef_multilabel_bin1'))
-#        
+        self.loss = []
+        self.dice_coef_multilabel_bin0 = []
+        self.dice_coef_multilabel_bin1 = []
+        self.dice_coef_multilabel_bin2 = []
+        self.dice_coef_multilabel_bin3 = []
+        self.dice_coef_multilabel_bin4 = []
+        self.dice_coef_multilabel_bin5 = []
+        self.dice_coef_multilabel_bin6 = []
+
+        self.val_loss = []
+        self.val_dice_coef_multilabel_bin0 = []
+        self.val_dice_coef_multilabel_bin1 = []
+        self.val_dice_coef_multilabel_bin2 = []
+        self.val_dice_coef_multilabel_bin3 = []
+        self.val_dice_coef_multilabel_bin4 = []
+        self.val_dice_coef_multilabel_bin5 = []
+        self.val_dice_coef_multilabel_bin6 = []
+
+    # def on_batch_end(self, batch, logs={}):
+    #     self.loss.append(logs.get('loss'))
+    #     self.dice_coef_multilabel_bin1.append(logs.get('dice_coef_multilabel_bin1'))
+        
     def on_epoch_end(self, epoch, logs={}):
         self.loss.append(logs.get('loss'))
         self.dice_coef_multilabel_bin0.append(logs.get('dice_coef_multilabel_bin0'))

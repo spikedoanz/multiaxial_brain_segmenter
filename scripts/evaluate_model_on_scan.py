@@ -41,6 +41,8 @@ scan = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/Andy.nii'
 segmentation = None
 anterior_commissure = [102,	141, 163]
 
+save_segmentation = True
+
 if __name__ == '__main__':
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -62,7 +64,7 @@ if __name__ == '__main__':
                                      'dice_coef_multilabel_bin5':dice_coef_multilabel_bin5,
                                      'dice_coef_multilabel_bin6':dice_coef_multilabel_bin6}
     
-    SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/sagittalSegmenter_PositionalEncoding_2epochs_depth6_baseFilters4/'
+    SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/sagittalSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16/'
     AXIAL_MODEL_SESSION_PATH = None #'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/axial_segmenter_NoDataAug/'
     CORONAL_MODEL_SESSION_PATH = None #'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/coronal_segmenter_NoDataAug/'
     
@@ -113,3 +115,11 @@ if __name__ == '__main__':
     plt.imshow(np.rot90(img[INDEX]))
     plt.subplot(122)
     plt.imshow(np.rot90(model_segmentation[INDEX]))
+
+
+    if save_segmentation:
+        if not os.path.exists(SAGITTAL_MODEL_SESSION_PATH + '/predictions/'):
+            os.mkdir(SAGITTAL_MODEL_SESSION_PATH + '/predictions/')
+        nii_out_pred = nib.Nifti1Image(np.array(model_segmentation, dtype='int16'), nii_out.affine)
+        nib.save(nii_out_pred, SAGITTAL_MODEL_SESSION_PATH + '/predictions/' + subject + '_segmentation.nii')
+        
