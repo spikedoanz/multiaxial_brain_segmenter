@@ -506,38 +506,27 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
         self.debug = debug
         
         self.augmentor = tf.keras.preprocessing.image.ImageDataGenerator(
-                    rotation_range=25,
-                    shear_range=0.2,
-                    zoom_range=0.2,
-                    horizontal_flip=True,
-                    vertical_flip=True,
-                    interpolation=1,
-                    fill_mode='constant' # MRI, segmentation = constant.   Coordinates = nearest.  
-                    
+                    rotation_range=self.rotation_range,
+                    shear_range=self.shear_range,
+                    fill_mode='constant', 
+                    interpolation_order=1,
                 )
-
+        
+        self.augmentor_mask = tf.keras.preprocessing.image.ImageDataGenerator( 
+                    rotation_range=self.rotation_range,
+                    shear_range=self.shear_range,
+                    fill_mode='constant', cval=0,
+                    interpolation_order=0,
+        )
+        
         
         self.augmentor_coordinates = tf.keras.preprocessing.image.ImageDataGenerator(
-                    rotation_range=25,
-                    shear_range=0.2,
-                    zoom_range=0.2,
-                    horizontal_flip=True,
-                    vertical_flip=True,
-                    interpolation=1,
+                    rotation_range=self.rotation_range,
+                    shear_range=self.shear_range,
+                    interpolation_order=1,
                     fill_mode='nearest',  # MRI, segmentation = constant.   Coordinates = nearest.  
                     
                 )
-
-        
-        self.augmentor_mask = tf.keras.preprocessing.image.ImageDataGenerator( 
-                    rotation_range=25,
-                    shear_range=0.2,
-                    zoom_range=0.2,
-                    horizontal_flip=True,
-                    vertical_flip=True,
-                    interpolation=0,
-                    fill_mode=0, cval=0                  
-                    )
         
    
     def __len__(self):
@@ -588,17 +577,13 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
                 positional_encoding_vector[i] =  np.load(self.coords_path + ID) /256.
 
         y = np.expand_dims(y, -1) #ImageDataGenerator needs arrays of rank 4. But wants channel dim = 1,3,4
-        
+
         if self.do_augmentation:
             X_gen = self.augmentor.flow(X, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-            
-            
             y_gen = self.augmentor_mask.flow(y, batch_size=self.batch_size, shuffle=False, seed=self.seed)
 
             if self.coords_path is not None:
-                positional_encoding_vector_gen = self.augmentor.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-
-
+                positional_encoding_vector_gen = self.augmentor_coordinates.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
                 return next(X_gen), next(y_gen), next(positional_encoding_vector_gen)
             else:
                 return next(X_gen), next(y_gen)
@@ -607,6 +592,7 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
                 return [X,positional_encoding_vector],y
             else:
                 return X,y
+
 
 #%%
 
