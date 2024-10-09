@@ -65,7 +65,7 @@ if __name__ == '__main__':
                                      'dice_coef_multilabel_bin6':dice_coef_multilabel_bin6}
     
     SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/sagittalSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16/'
-    AXIAL_MODEL_SESSION_PATH = None #'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/axial_segmenter_NoDataAug/'
+    AXIAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/axialSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16/'
     CORONAL_MODEL_SESSION_PATH = None #'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/coronal_segmenter_NoDataAug/'
     
     
@@ -103,23 +103,28 @@ if __name__ == '__main__':
     coords = coords/256.
     
     img.shape
-    coords.shape    
-    yhat = model_sagittal.predict([img, coords], batch_size=1)
+    coords.shape   
     
-    yhat.shape
-    
-    model_segmentation = np.argmax(yhat, axis=-1)        
+    yhat_sagittal = model_sagittal.predict([img, coords], batch_size=1)
+    yhat_axial = model_axial.predict([np.swapaxes(np.swapaxes(img, 1,2), 0,1), np.swapaxes(np.swapaxes(coords, 1,2), 0,1)], batch_size=1)
+        
+    model_segmentation_sagittal = np.argmax(yhat_sagittal, axis=-1)            
+    model_segmentation_axial = np.swapaxes(np.swapaxes(np.argmax(yhat_axial,-1),0,1), 1,2)
     
     INDEX = 120
-    plt.subplot(121)
+    plt.subplot(131)
     plt.imshow(np.rot90(img[INDEX]))
-    plt.subplot(122)
-    plt.imshow(np.rot90(model_segmentation[INDEX]))
-
+    plt.subplot(132)
+    plt.imshow(np.rot90(model_segmentation_sagittal[INDEX]))
+    plt.subplot(133)
+    plt.imshow(np.rot90(model_segmentation_axial[INDEX]))
 
     if save_segmentation:
         if not os.path.exists(SAGITTAL_MODEL_SESSION_PATH + '/predictions/'):
             os.mkdir(SAGITTAL_MODEL_SESSION_PATH + '/predictions/')
-        nii_out_pred = nib.Nifti1Image(np.array(model_segmentation, dtype='int16'), nii_out.affine)
+        nii_out_pred = nib.Nifti1Image(np.array(model_segmentation_sagittal, dtype='int16'), nii_out.affine)
         nib.save(nii_out_pred, SAGITTAL_MODEL_SESSION_PATH + '/predictions/' + subject + '_segmentation.nii')
-        
+        if not os.path.exists(AXIAL_MODEL_SESSION_PATH + '/predictions/'):
+            os.mkdir(AXIAL_MODEL_SESSION_PATH + '/predictions/')
+        nii_out_pred = nib.Nifti1Image(np.array(model_segmentation_axial, dtype='int16'), nii_out.affine)
+        nib.save(nii_out_pred, AXIAL_MODEL_SESSION_PATH + '/predictions/' + subject + '_segmentation.nii')        

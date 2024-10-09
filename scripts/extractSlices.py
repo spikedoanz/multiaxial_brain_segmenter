@@ -101,4 +101,3 @@ if __name__ == '__main__':
             np.save(OUTPUT_PATH + 'axial/coords/' + subject + f'_slice{i}.npy', coords[:,:,i,:3])
         
      
-    
