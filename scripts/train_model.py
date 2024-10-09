@@ -10,7 +10,7 @@ Get some metric for detection.
 @author: deeperthought
 """
 
-GPU = 0
+GPU = 2
 
 import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -40,7 +40,7 @@ from utils import DataGenerator2
 ORIENTATION = 'axial'
 #ORIENTATION = 'coronal'
 
-PARTITIONS_PATH = '/media/HDD/MultiAxial/Data/partitions.npy'
+PARTITIONS_PATH = '/home/deeperthought/Projects/Multiaxial/Data/data.npy' #'/media/HDD/MultiAxial/Data/partitions.npy'
 
 OUTPUT_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/' 
 
@@ -57,7 +57,7 @@ DATA_AUGMENTATION = False
 ADD_SPATIAL_PRIOR = True
 LOAD_MODEL = False
 
-NAME = f'{ORIENTATION}Segmenter_PositionalEncoding_{EPOCHS}epochs_depth{DEPTH}_baseFilters{N_BASE_FILTERS}'
+NAME = f'{ORIENTATION}Segmenter_PositionalEncoding_{EPOCHS}epochs_depth{DEPTH}_baseFilters{N_BASE_FILTERS}_AndrewPartition_Step2'
 
 
 

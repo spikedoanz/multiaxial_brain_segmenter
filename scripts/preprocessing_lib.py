@@ -34,20 +34,8 @@ def create_coordinate_matrix(shape, anterior_commissure):
 
     return matrix_with_ones
 
-# def make_spatial_coordinates(nii, anterior_commissure):
-#     matrix = create_coordinate_matrix(nii.shape, anterior_commissure)
-    
-#     matrix_with_ones = np.concatenate([matrix, np.ones((matrix.shape[0], matrix.shape[1], matrix.shape[2], 1))], axis=-1)
 
-#     result_coords = np.matmul(matrix_with_ones, np.linalg.inv(nii.affine))
-    
-#     return result_coords
-
-
-# nii = nib.load('/home/deeperthought/Projects/MultiPriors/Adam_Buchwald/P906/NIFTY/P906_T1_original.nii')
-# anterior_commissure = [95, 152, 153]
-
-def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, anterior_commissure: tuple = None):
+def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, anterior_commissure: tuple = None, keep_parameters_for_reconstruction: bool = False):
     """
     Preprocesses a head MRI image.
     
@@ -80,7 +68,7 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
     if nii_seg is not None:
         img_seg = nii_seg.get_fdata()
     else:
-        print('Segmentation image given')
+        print('Segmentation image not given')
                 
     ############### ISOTROPIC #######################
     
@@ -100,6 +88,8 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
     ############### Crop/Pad to make shape 256,256,256 ###############
     
     d1, d2, d3 = new_shape
+    start = None
+    end = None    
     
     if d1 < 256:
         pad1 = 256-d1
@@ -143,16 +133,62 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
             anterior_commissure[2] -= start
 
     elif d3 < 256:
+
         pad3 = 256-d3
         img = np.pad(img, ((0,0),(0,0),(pad3//2, pad3//2+pad3%2)))
         if nii_seg is not None: img_seg = np.pad(img_seg, ((0,0),(0,0),(pad3//2, pad3//2+pad3%2)))
         anterior_commissure[2] += pad3//2
 
     coords = create_coordinate_matrix(img.shape, anterior_commissure)        
-        
+                
     if nii_seg is not None:
-        return nib.Nifti1Image(img, nii.affine), nib.Nifti1Image(np.array(img_seg, dtype='int8'), nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
+        if keep_parameters_for_reconstruction:
+            reconstruction_parms = d1,d2,d3,start,end
+            return nib.Nifti1Image(img, nii.affine), nib.Nifti1Image(np.array(img_seg, dtype='int8'), nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int'), reconstruction_parms
+        else:
+            return nib.Nifti1Image(img, nii.affine), nib.Nifti1Image(np.array(img_seg, dtype='int8'), nii.affine), np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
 
     else:
-        return nib.Nifti1Image(img, nii.affine), None, np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
+        if keep_parameters_for_reconstruction:
+            reconstruction_parms = d1,d2,d3,start,end
+            return nib.Nifti1Image(img, nii.affine), None, np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int'), reconstruction_parms
+        else:
+            return nib.Nifti1Image(img, nii.affine), None, np.array(coords, dtype='int16'), np.array(anterior_commissure, dtype='int')
         
+        
+        
+def reshape_back_to_original(img, nii_original, reconstruction_parms, resample_order=1):
+    d1,d2,d3, start, end = reconstruction_parms
+
+    #f'{nii_out.shape}     --> (crop/pad)-->  {d1,d2,d3} --> (resample) --> {nii.shape} --> (reorient)'
+
+    # pad or crop z axis
+    if d3 > 256: 
+        if start < 0:
+            crop3 = d3 - 256
+            img = np.pad(img, ((0,0),(0,0),(crop3,0)))#img[:,:,crop3:]
+        else:
+            img = np.pad(img, ((0,0),(0,0),(start,end))) # img[:,:,start:end]           
+    elif d3 < 256:
+        pad3 = 256-d3
+        img = img[:,:,pad3//2:pad3//2+pad3%2]
+    
+    # pad or crop y axis
+    if d2 > 256: 
+        crop2 = d2-256
+        img = np.pad(img, ((0,0),(crop2//2,crop2//2+crop2%2),(0,0)))#img[:,:,crop3:]
+            
+    elif d2 < 256:
+        pad2 = 256-d2
+        img = img[:,pad2//2:pad2//2+pad2%2,:]
+        
+    # pad or crop x axis
+    if d1 < 256:
+        pad1 = 256-d1
+        img = img[pad1//2:-pad1//2+pad1%2,:,:]
+    
+    # resample to original resolution
+    img = resize(img, nii_original.shape, anti_aliasing=True, preserve_range=True, order=resample_order)
+    
+    nii_out = nib.Nifti1Image(img, nii_original.affine)
+    return nii_out

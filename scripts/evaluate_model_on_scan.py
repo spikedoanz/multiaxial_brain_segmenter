@@ -13,41 +13,39 @@ import tensorflow as tf
 import pandas as pd
 import matplotlib.pyplot as plt
 
-if tf.__version__[0] == '1':
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    config.gpu_options.visible_device_list="0"
-    tf.keras.backend.set_session(tf.Session(config=config))
-
-elif tf.__version__[0] == '2':
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-      # Restrict TensorFlow to only use the first GPU
-      try:
-        tf.config.experimental.set_visible_devices(gpus[1], 'GPU')
-        tf.config.experimental.set_memory_growth(gpus[1], True)
-      except RuntimeError as e:
-        # Visible devices must be set at program startup
-        print(e)
 
 
+GPU = 0
 
-# scan = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/PA020_1mm_ras.nii'
-# segmentation = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/PA020_segmentation_fixed.nii'
-# anterior_commissure = [88, 135, 157]
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+  # Restrict TensorFlow to only use the first GPU
+  try:
+    tf.config.experimental.set_visible_devices(gpus[GPU], 'GPU')
+    tf.config.experimental.set_memory_growth(gpus[GPU], True)
+  except RuntimeError as e:
+    # Visible devices must be set at program startup
+    print(e)
 
 
-scan = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/Andy.nii'
-segmentation = None
-anterior_commissure = [102,	141, 163]
+scan = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/PA020_1mm_ras.nii'
+segmentation = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/PA020_segmentation_fixed.nii'
+anterior_commissure = [88, 135, 157]
 
+
+# scan = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/Parra.nii'
+# segmentation = None
+# anterior_commissure = [102,	141, 163]
+
+    
 save_segmentation = False
 
 if __name__ == '__main__':
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    from preprocessing_lib import preprocess_head_MRI
+    from preprocessing_lib import preprocess_head_MRI, reshape_back_to_original
     
     from utils import Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
     
@@ -91,8 +89,7 @@ if __name__ == '__main__':
     if subject.startswith('r'):
         subject = subject[1:]
     
-
-    nii_out, nii_seg_out, coords, anterior_commissure = preprocess_head_MRI(nii, nii_seg, anterior_commissure=anterior_commissure)  
+    nii_out, nii_seg_out, coords, anterior_commissure, reconstruction_parms = preprocess_head_MRI(nii, nii_seg, anterior_commissure=anterior_commissure, keep_parameters_for_reconstruction=True)  
 
     img = nii_out.get_fdata()
     p95 = np.percentile(img, 95)
@@ -102,14 +99,40 @@ if __name__ == '__main__':
     coords = coords[:,:,:,:3]
     coords = coords/256.
     
-    img.shape
-    coords.shape   
-    
+    #----- model prediction -------    
     yhat_sagittal = model_sagittal.predict([img, coords], batch_size=1)
     yhat_axial = model_axial.predict([np.swapaxes(np.swapaxes(img, 1,2), 0,1), np.swapaxes(np.swapaxes(coords, 1,2), 0,1)], batch_size=1)
         
     model_segmentation_sagittal = np.argmax(yhat_sagittal, axis=-1)            
     model_segmentation_axial = np.swapaxes(np.swapaxes(np.argmax(yhat_axial,-1),0,1), 1,2)
+    
+        
+    nii_reconstructed = reshape_back_to_original(nii_out.get_fdata(), nii, reconstruction_parms)
+
+    nii_seg_reconstructed = reshape_back_to_original(nii_seg_out.get_fdata(), nii_seg, reconstruction_parms, resample_order=0)
+
+    nii_model_seg_reconstructed = reshape_back_to_original(model_segmentation_sagittal, nii_seg, reconstruction_parms, resample_order=0)
+
+
+    # nii_reconstructed.shape
+
+    # img1 = nii.get_fdata()
+    # img2 = nii_reconstructed.get_fdata()
+    
+    # seg1 = nii_seg.get_fdata()
+    # seg2 = nii_seg_reconstructed.get_fdata()
+    # seg3 = nii_model_seg_reconstructed.get_fdata()
+    
+    # np.std(img1-img2)
+    
+    # np.std(seg1-seg2)
+      
+    
+    # plt.imshow(seg1[100])
+    # plt.imshow(seg2[100])
+    # plt.imshow(seg3[100])
+        
+    
     
     INDEX = 120
     plt.subplot(131)
