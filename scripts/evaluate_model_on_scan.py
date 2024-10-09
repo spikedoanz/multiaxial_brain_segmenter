@@ -29,14 +29,14 @@ if gpus:
     print(e)
 
 
-scan = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/PA020_1mm_ras.nii'
-segmentation = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/PA020_segmentation_fixed.nii'
-anterior_commissure = [88, 135, 157]
+# scan = '/media/HDD/MultiAxial/Data/Processed_New_MCS/MRI/PA020_1mm_ras.nii'
+# segmentation = '/media/HDD/MultiAxial/Data/Processed_New_MCS/GT/PA020_segmentation_fixed.nii'
+# anterior_commissure = [88, 135, 157]
 
 
-# scan = '/media/HDD/MultiAxial/Data/NormalHeads/MRI/Parra.nii'
-# segmentation = None
-# anterior_commissure = [102,	141, 163]
+scan = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/MRI/P904.nii'
+segmentation = None
+anterior_commissure =[ 96,	143,	150]
 
     
 save_segmentation = False
@@ -62,8 +62,8 @@ if __name__ == '__main__':
                                      'dice_coef_multilabel_bin5':dice_coef_multilabel_bin5,
                                      'dice_coef_multilabel_bin6':dice_coef_multilabel_bin6}
     
-    SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/sagittalSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16/'
-    AXIAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/axialSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16/'
+    SAGITTAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/sagittalSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16_AndrewPartition_Step2/'
+    AXIAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/axialSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16_AndrewPartition_Step2/'
     CORONAL_MODEL_SESSION_PATH = None #'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/coronal_segmenter_NoDataAug/'
     
     
@@ -106,33 +106,8 @@ if __name__ == '__main__':
     model_segmentation_sagittal = np.argmax(yhat_sagittal, axis=-1)            
     model_segmentation_axial = np.swapaxes(np.swapaxes(np.argmax(yhat_axial,-1),0,1), 1,2)
     
-        
-    nii_reconstructed = reshape_back_to_original(nii_out.get_fdata(), nii, reconstruction_parms)
-
-    nii_seg_reconstructed = reshape_back_to_original(nii_seg_out.get_fdata(), nii_seg, reconstruction_parms, resample_order=0)
-
     nii_model_seg_reconstructed = reshape_back_to_original(model_segmentation_sagittal, nii_seg, reconstruction_parms, resample_order=0)
 
-
-    # nii_reconstructed.shape
-
-    # img1 = nii.get_fdata()
-    # img2 = nii_reconstructed.get_fdata()
-    
-    # seg1 = nii_seg.get_fdata()
-    # seg2 = nii_seg_reconstructed.get_fdata()
-    # seg3 = nii_model_seg_reconstructed.get_fdata()
-    
-    # np.std(img1-img2)
-    
-    # np.std(seg1-seg2)
-      
-    
-    # plt.imshow(seg1[100])
-    # plt.imshow(seg2[100])
-    # plt.imshow(seg3[100])
-        
-    
     
     INDEX = 120
     plt.subplot(131)
