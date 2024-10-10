@@ -10,9 +10,7 @@ import os
 import numpy as np
 import nibabel as nib
 import tensorflow as tf
-import pandas as pd
 import matplotlib.pyplot as plt
-
 
 
 GPU = 0
@@ -34,8 +32,8 @@ if gpus:
 # anterior_commissure = [88, 135, 157]
 
 
-scan = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/MRI/P904.nii'
-segmentation = None
+scan_path = '/media/HDD/MultiAxial/Data/AdamBuchwald/Adams_Manual_Fixed/MRI/P904.nii'
+segmentation_path = None
 anterior_commissure =[ 96,	143,	150]
 
     
@@ -47,7 +45,7 @@ if __name__ == '__main__':
     
     from preprocessing_lib import preprocess_head_MRI, reshape_back_to_original
     
-    from utils import Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
+    from utils import segment_MRI, Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
     
 
     OUTPUT_PATH = '/home/deeperthought/Projects/DGNS/Detection_model/Sessions/'
@@ -66,52 +64,41 @@ if __name__ == '__main__':
     AXIAL_MODEL_SESSION_PATH = '/home/deeperthought/Projects/Multiaxial/Sessions/axialSegmenter_PositionalEncoding_100epochs_depth6_baseFilters16_AndrewPartition_Step2/'
     CORONAL_MODEL_SESSION_PATH = None #'/home/deeperthought/Projects/Others/2D_brain_segmenter/Sessions/coronal_segmenter_NoDataAug/'
     
-    
-    model_sagittal = tf.keras.models.load_model(SAGITTAL_MODEL_SESSION_PATH + 'best_model.h5', 
+
+            
+    if SAGITTAL_MODEL_SESSION_PATH is not None:
+        model_sagittal = tf.keras.models.load_model(SAGITTAL_MODEL_SESSION_PATH + 'best_model.h5', 
                                        custom_objects = my_custom_objects)
     if AXIAL_MODEL_SESSION_PATH is not None:
         model_axial = tf.keras.models.load_model(AXIAL_MODEL_SESSION_PATH + 'best_model.h5', 
                                            custom_objects = my_custom_objects)
     if CORONAL_MODEL_SESSION_PATH is not None:
         model_coronal = tf.keras.models.load_model(CORONAL_MODEL_SESSION_PATH + 'best_model.h5', 
-                                           custom_objects = my_custom_objects)
-           
-    print(scan)
-    nii = nib.load(scan)
-    if segmentation is not None:
-        nii_seg = nib.load(segmentation)
+                                           custom_objects = my_custom_objects)    
+    
+             
+    nii = nib.load(scan_path)
+    if segmentation_path is not None:
+        nii_seg = nib.load(segmentation_path)
     else:
         nii_seg = None
     print(nii.shape)
     
-    subject = scan.split('/')[-1].split('_')[0].replace('.nii','')
+    subject = scan_path.split('/')[-1].split('_')[0].replace('.nii','')
     
     if subject.startswith('r'):
         subject = subject[1:]
     
     nii_out, nii_seg_out, coords, anterior_commissure, reconstruction_parms = preprocess_head_MRI(nii, nii_seg, anterior_commissure=anterior_commissure, keep_parameters_for_reconstruction=True)  
 
-    img = nii_out.get_fdata()
-    p95 = np.percentile(img, 95)
-    img = img/p95
-    img = np.expand_dims(img, axis=-1)
-    
-    coords = coords[:,:,:,:3]
-    coords = coords/256.
-    
-    #----- model prediction -------    
-    yhat_sagittal = model_sagittal.predict([img, coords], batch_size=1)
-    yhat_axial = model_axial.predict([np.swapaxes(np.swapaxes(img, 1,2), 0,1), np.swapaxes(np.swapaxes(coords, 1,2), 0,1)], batch_size=1)
-        
-    model_segmentation_sagittal = np.argmax(yhat_sagittal, axis=-1)            
-    model_segmentation_axial = np.swapaxes(np.swapaxes(np.argmax(yhat_axial,-1),0,1), 1,2)
-    
-    nii_model_seg_reconstructed = reshape_back_to_original(model_segmentation_sagittal, nii_seg, reconstruction_parms, resample_order=0)
+    model_segmentation_sagittal, model_segmentation_coronal, model_segmentation_axial = segment_MRI(nii_out.get_fdata(), coords, model_sagittal, model_axial)
 
-    
+    nii_model_seg_reconstructed = reshape_back_to_original(model_segmentation_sagittal, nii, reconstruction_parms, resample_order=0)
+
+
     INDEX = 120
     plt.subplot(131)
-    plt.imshow(np.rot90(img[INDEX]))
+    plt.imshow(np.rot90(nii_out.get_fdata()[INDEX]))
     plt.subplot(132)
     plt.imshow(np.rot90(model_segmentation_sagittal[INDEX]))
     plt.subplot(133)

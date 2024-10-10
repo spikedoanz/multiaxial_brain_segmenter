@@ -750,25 +750,25 @@ class my_model_checkpoint(tf.keras.callbacks.Callback):
 
 #%%
 
-def Generalised_dice_coef_multilabel2_numpy(y_true, y_pred, numLabels=2):
-    """This is the loss function to MINIMIZE. A perfect overlap returns 0. Total disagreement returns numeLabels"""
-    dice=0
-    for index in range(numLabels):
-        dice -= dice_coef_numpy(y_true[:,:,:,index], y_pred[:,:,:,index])
-    return numLabels + dice
+def segment_MRI(img, coords, model_sagittal=None, model_axial=None, model_coronal=None):
+    
+    model_segmentation_sagittal = None
+    model_segmentation_coronal = None
+    model_segmentation_axial = None
+    
+    if model_sagittal is not None:
+        yhat_sagittal = model_sagittal.predict([np.expand_dims(img,-1), coords], batch_size=1)
+        model_segmentation_sagittal = np.argmax(yhat_sagittal, axis=-1)  
+        
+    if model_coronal is not None:
+        yhat_coronal = model_coronal.predict([np.expand_dims(np.swapaxes(img, 0, 1),-1), np.swapaxes(coords, 0, 1)], batch_size=1)
+        model_segmentation_coronal = np.swapaxes(np.argmax(yhat_coronal,-1),0,1)          
 
-def dice_coef_multilabel_bin0_numpy(y_true, y_pred):
-    dice = dice_coef_numpy(y_true[:,:,:,0], np.round(y_pred[:,:,:,0]))
-    return dice
-def dice_coef_multilabel_bin1_numpy(y_true, y_pred):
-    dice = dice_coef_numpy(y_true[:,:,:,1], np.round(y_pred[:,:,:,1]))
-    return dice
-
-def dice_coef_numpy(y_true, y_pred):
-    smooth = 1e-6
-    y_true_f = y_true.flatten()
-    y_pred_f = y_pred.flatten()
-    intersection = np.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (np.sum(y_true_f**2) + np.sum(y_pred_f**2) + smooth)
+    if model_axial is not None:
+        yhat_axial = model_axial.predict([np.expand_dims(np.swapaxes(np.swapaxes(img, 1,2), 0,1),-1), np.swapaxes(np.swapaxes(coords, 1,2), 0,1)], batch_size=1)
+        model_segmentation_axial = np.swapaxes(np.swapaxes(np.argmax(yhat_axial,-1),0,1), 1,2)
 
 
+    # Add Consensus Here
+
+    return model_segmentation_sagittal, model_segmentation_coronal, model_segmentation_axial

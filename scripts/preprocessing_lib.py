@@ -140,6 +140,14 @@ def preprocess_head_MRI(nii: nib.Nifti1Image, nii_seg: nib.Nifti1Image = None, a
         anterior_commissure[2] += pad3//2
 
     coords = create_coordinate_matrix(img.shape, anterior_commissure)        
+    
+    # Intensity normalization
+    p95 = np.percentile(img, 95)
+    img = img/p95
+    
+    coords = coords[:,:,:,:3]
+    coords = coords/256.
+    
                 
     if nii_seg is not None:
         if keep_parameters_for_reconstruction:
