@@ -584,7 +584,7 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
 
             if self.coords_path is not None:
                 positional_encoding_vector_gen = self.augmentor_coordinates.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-                return next(X_gen), next(y_gen), next(positional_encoding_vector_gen)
+                return [next(X_gen), next(positional_encoding_vector_gen)], next(y_gen),
             else:
                 return next(X_gen), next(y_gen)
         else:
