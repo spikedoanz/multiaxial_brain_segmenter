@@ -241,12 +241,12 @@ def UNet_v0_2DTumorSegmenter_V2(input_shape =  (256, 256,1), pool_size=(2, 2),in
         
         if add_spatial_prior:
             positional_encoding_input = Input((256,256,3))
-
+            positional_encoding = positional_encoding_input
         
         levels = list()
         #current_layer = Conv2D(n_base_filters, (1, 1))(inputs)  # ???? needed??  Not even a nonlinear activation!!!
         current_layer = inputs
-        positional_encoding = positional_encoding_input
+        
     
         # add levels with max pooling
         for layer_depth in range(depth):
