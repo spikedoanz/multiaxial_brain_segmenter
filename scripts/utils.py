@@ -40,7 +40,54 @@ def Generalised_dice_coef_multilabel7(y_true, y_pred, numLabels=7):
     dice=0
     for index in range(numLabels):
         dice -= dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index])
+        
     return numLabels + dice
+
+@tf.function
+def generalized_dice_coef_multilabel7_present_class(y_true, y_pred):
+    """This is the loss function to MINIMIZE. A perfect overlap returns 0. Total disagreement returns numLabels"""
+    y_true = tf.cast(y_true, tf.float32)
+    y_pred = tf.cast(y_pred, tf.float32)
+    "If the class is absent and the prediction of the class is absent, it should return 1. Perfect agreement!"
+    dice = 7
+    empty = tf.constant(1, tf.float32)
+    for index in range(7):
+        flag1 = tf.math.reduce_sum(y_true[:,:,:,index])
+        #flag2 = tf.math.reduce_sum(y_pred[:,:,:,index])
+        if flag1 == 0 :#and flag2 == 0:
+            dice -= empty
+        else:
+            dice -= dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index])
+               
+    return dice
+
+# def Generalised_dice_coef_neighbors(y_true, y_pred, numLabels=7):
+#     """This is the loss function to MINIMIZE. A perfect overlap returns 0. Total disagreement returns numeLabels"""
+#     dice=0
+#     for index in range(numLabels):
+#         dice -= dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index])
+        
+#       # Get the dimensions of the predicted volume
+#     depth, height, width = y_pred.shape[1:]
+    
+#     brain_classes = [2,3]
+#     nonbrain_classes = [0,6]
+    
+#     # Create a mask for neighboring voxels
+#     neighbor_mask = tf.zeros_like(y_pred)
+#     for i in range(1, depth - 1):
+#       for j in range(1, height - 1):
+#         for k in range(1, width - 1):
+#           if y_pred[0, i, j, k] in brain_classes and y_pred[0, i, j - 1, k] in nonbrain_classes:
+#             neighbor_mask[0, i, j, k] = 1
+#           elif y_pred[0, i, j, k] in brain_classes and y_pred[0, i, j + 1, k] in nonbrain_classes:
+#             neighbor_mask[0, i, j, k] = 1
+#     #       # Add similar checks for other neighboring voxels (e.g., up, down, diagonal)
+    
+#     # Calculate the penalty based on the number of voxels in the mask
+#     dice += tf.reduce_sum(neighbor_mask)    
+    
+#     return numLabels + dice
 
 def dice_coef_multilabel_bin0(y_true, y_pred):
   numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,0] * y_pred[:,:,:,0])
@@ -80,7 +127,113 @@ def dice_coef_multilabel_bin6(y_true, y_pred):
 
 
 
+def myDiceMetric(tissueType):
+    def dice_metric(y_true, y_pred):
+        # I want a discrete dice score. So taking the argmax and then retriving score per class
+        y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+        y_true = tf.math.argmax(y_true, -1)
+        
+        y_pred_mask = tf.cast(y_pred == tissueType, tf.float32)
+        y_true_mask = tf.cast(y_true == tissueType, tf.float32)
+        
+        numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+        denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+        return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+    return dice_metric
 
+
+def dice_metric0(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 0, tf.float32)
+    y_true_mask = tf.cast(y_true == 0, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+
+
+def dice_metric1(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 1, tf.float32)
+    y_true_mask = tf.cast(y_true == 1, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+
+
+def dice_metric2(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 2, tf.float32)
+    y_true_mask = tf.cast(y_true == 2, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+
+
+def dice_metric3(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 3, tf.float32)
+    y_true_mask = tf.cast(y_true == 3, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+
+
+
+def dice_metric4(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 4, tf.float32)
+    y_true_mask = tf.cast(y_true == 4, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+
+
+
+def dice_metric5(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 5, tf.float32)
+    y_true_mask = tf.cast(y_true == 5, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
+
+
+
+def dice_metric6(y_true, y_pred):
+    # I want a discrete dice score. So taking the argmax and then retriving score per class
+    y_pred = tf.math.argmax(y_pred, -1) # (batch, x,y)
+    y_true = tf.math.argmax(y_true, -1)
+    
+    y_pred_mask = tf.cast(y_pred == 6, tf.float32)
+    y_true_mask = tf.cast(y_true == 6, tf.float32)
+    
+    numerator = 2 * tf.math.reduce_sum(y_true_mask * y_pred_mask)
+    denominator = tf.math.reduce_sum(y_true_mask + y_pred_mask)
+    return (numerator + tf.keras.backend.epsilon())/ (denominator + tf.keras.backend.epsilon())
 
 #%%
 
@@ -489,7 +642,7 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
 
     def __init__(self, list_IDs, batch_size=4, dim=(256,256,1), n_channels=3,
                  n_classes=2, shuffledata=True, data_path='', labels_path='', coords_path=None, 
-                 do_augmentation=True, debug=False):
+                 do_augmentation=True, axis=None, rotation_range=5, shear_range=5, debug=False):
         
         self.dim = dim
         self.batch_size = batch_size
@@ -504,29 +657,32 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
         self.seed = 0
         self.do_augmentation = do_augmentation
         self.debug = debug
+        self.axis = axis
+        self.rotation_range = rotation_range
+        self.shear_range = shear_range
         
-        self.augmentor = tf.keras.preprocessing.image.ImageDataGenerator(
-                    rotation_range=self.rotation_range,
-                    shear_range=self.shear_range,
-                    fill_mode='constant', 
-                    interpolation_order=1,
-                )
+        # self.augmentor = tf.keras.preprocessing.image.ImageDataGenerator(
+        #             rotation_range=self.rotation_range,
+        #             shear_range=self.shear_range,
+        #             fill_mode='constant', 
+        #             interpolation_order=1,
+        #         )
         
-        self.augmentor_mask = tf.keras.preprocessing.image.ImageDataGenerator( 
-                    rotation_range=self.rotation_range,
-                    shear_range=self.shear_range,
-                    fill_mode='constant', cval=0,
-                    interpolation_order=0,
-        )
+        # self.augmentor_mask = tf.keras.preprocessing.image.ImageDataGenerator( 
+        #             rotation_range=self.rotation_range,
+        #             shear_range=self.shear_range,
+        #             fill_mode='constant', cval=0,
+        #             interpolation_order=0,
+        # )
         
         
-        self.augmentor_coordinates = tf.keras.preprocessing.image.ImageDataGenerator(
-                    rotation_range=self.rotation_range,
-                    shear_range=self.shear_range,
-                    interpolation_order=1,
-                    fill_mode='nearest',  # MRI, segmentation = constant.   Coordinates = nearest.  
+        # self.augmentor_coordinates = tf.keras.preprocessing.image.ImageDataGenerator(
+        #             rotation_range=self.rotation_range,
+        #             shear_range=self.shear_range,
+        #             interpolation_order=1,
+        #             fill_mode='nearest',  # MRI, segmentation = constant.   Coordinates = nearest.  
                     
-                )
+        #         )
         
    
     def __len__(self):
@@ -569,12 +725,19 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
             
 
         for i, ID in enumerate(list_IDs_temp):          
-
-            X[i,:,:,0] = np.load(self.data_path + ID)   # Here we add the path. ID can be the path
-            y[i] = np.load(self.labels_path  + ID)
+            if self.axis == 'all':
+                random_axis = np.random.choice(['sagittal','axial','coronal'], size=1)[0]
+                X[i,:,:,0] = np.load(self.data_path.replace('sagittal',random_axis) + ID)   # Here we add the path. ID can be the path
+                y[i] = np.load(self.labels_path.replace('sagittal',random_axis)  + ID)
+            else:
+                X[i,:,:,0] = np.load(self.data_path + ID)   # Here we add the path. ID can be the path
+                y[i] = np.load(self.labels_path  + ID)
 
             if self.coords_path is not None:
-                positional_encoding_vector[i] =  np.load(self.coords_path + ID) /256.
+                if self.axis == 'all':
+                    positional_encoding_vector[i] =  np.load(self.coords_path.replace('sagittal',random_axis) + ID) /256.
+                else:
+                    positional_encoding_vector[i] =  np.load(self.coords_path + ID) /256.
 
         y = np.expand_dims(y, -1) #ImageDataGenerator needs arrays of rank 4. But wants channel dim = 1,3,4
 
@@ -584,7 +747,7 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
 
             if self.coords_path is not None:
                 positional_encoding_vector_gen = self.augmentor_coordinates.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
-                return next(X_gen), next(y_gen), next(positional_encoding_vector_gen)
+                return [next(X_gen), next(positional_encoding_vector_gen)], next(y_gen), 
             else:
                 return next(X_gen), next(y_gen)
         else:
@@ -651,6 +814,7 @@ class MyHistory(tf.keras.callbacks.Callback):
     #     self.dice_coef_multilabel_bin1.append(logs.get('dice_coef_multilabel_bin1'))
         
     def on_epoch_end(self, epoch, logs={}):
+
         self.loss.append(logs.get('loss'))
         self.dice_coef_multilabel_bin0.append(logs.get('dice_coef_multilabel_bin0'))
         self.dice_coef_multilabel_bin1.append(logs.get('dice_coef_multilabel_bin1'))
@@ -669,6 +833,25 @@ class MyHistory(tf.keras.callbacks.Callback):
         self.val_dice_coef_multilabel_bin4.append(logs.get('val_dice_coef_multilabel_bin4'))
         self.val_dice_coef_multilabel_bin5.append(logs.get('val_dice_coef_multilabel_bin5'))
         self.val_dice_coef_multilabel_bin6.append(logs.get('val_dice_coef_multilabel_bin6'))
+
+        # self.loss.append(logs.get('loss'))
+        # self.dice_coef_multilabel_bin0.append(logs.get('dice_metric0'))
+        # self.dice_coef_multilabel_bin1.append(logs.get('dice_metric1'))
+        # self.dice_coef_multilabel_bin2.append(logs.get('dice_metric2'))
+        # self.dice_coef_multilabel_bin3.append(logs.get('dice_metric3'))
+        # self.dice_coef_multilabel_bin4.append(logs.get('dice_metric4'))
+        # self.dice_coef_multilabel_bin5.append(logs.get('dice_metric5'))
+        # self.dice_coef_multilabel_bin6.append(logs.get('dice_metric6'))
+
+
+        # self.val_loss.append(logs.get('val_loss'))
+        # self.val_dice_coef_multilabel_bin0.append(logs.get('val_dice_metric0'))
+        # self.val_dice_coef_multilabel_bin1.append(logs.get('val_dice_metric1'))
+        # self.val_dice_coef_multilabel_bin2.append(logs.get('val_dice_metric2'))
+        # self.val_dice_coef_multilabel_bin3.append(logs.get('val_dice_metric3'))
+        # self.val_dice_coef_multilabel_bin4.append(logs.get('val_dice_metric4'))
+        # self.val_dice_coef_multilabel_bin5.append(logs.get('val_dice_metric5'))
+        # self.val_dice_coef_multilabel_bin6.append(logs.get('val_dice_metric6'))
 
 
         plt.figure(figsize=(15,5))
