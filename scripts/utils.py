@@ -394,12 +394,12 @@ def UNet_v0_2DTumorSegmenter_V2(input_shape =  (256, 256,1), pool_size=(2, 2),in
         
         if add_spatial_prior:
             positional_encoding_input = Input((256,256,3))
-
+            positional_encoding = positional_encoding_input
         
         levels = list()
         #current_layer = Conv2D(n_base_filters, (1, 1))(inputs)  # ???? needed??  Not even a nonlinear activation!!!
         current_layer = inputs
-        positional_encoding = positional_encoding_input
+        
     
         # add levels with max pooling
         for layer_depth in range(depth):
@@ -748,6 +748,7 @@ class DataGenerator2(tf.keras.utils.Sequence): # inheriting from Sequence allows
             if self.coords_path is not None:
                 positional_encoding_vector_gen = self.augmentor_coordinates.flow(positional_encoding_vector, batch_size=self.batch_size, shuffle=False, seed=self.seed)
                 return [next(X_gen), next(positional_encoding_vector_gen)], next(y_gen), 
+                return [next(X_gen), next(positional_encoding_vector_gen)], next(y_gen),
             else:
                 return next(X_gen), next(y_gen)
         else:
