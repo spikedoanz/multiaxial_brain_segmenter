@@ -281,7 +281,7 @@ def get_up_convolution(n_filters, pool_size=(2,2), kernel_size=(2,2), strides=(2
             return Conv2DTranspose(filters=n_filters, kernel_size=(3,3),
                                    strides=strides, trainable=False)#, kernel_initializer=make_bilinear_filter_5D(shape=(3,3,3,n_filters,n_filters)), trainable=False)
         else:
-            return Conv2DTranspose(filters=n_filters, kernel_size=(2,2),
+            return Conv2DTranspose(filters=n_filters, kernel_size=kernel_size,
                                    strides=strides, kernel_regularizer=regularizers.l2(L2))            
     else:
         return UpSampling2D(size=pool_size)
@@ -934,25 +934,31 @@ class my_model_checkpoint(tf.keras.callbacks.Callback):
 
 #%%
 
-def segment_MRI(img, coords, model_sagittal=None, model_axial=None, model_coronal=None):
+def segment_MRI(img, coords, model_sagittal=None, model_axial=None, model_coronal=None, consensus_model=None):
     
     model_segmentation_sagittal = None
     model_segmentation_coronal = None
     model_segmentation_axial = None
     
     if model_sagittal is not None:
-        yhat_sagittal = model_sagittal.predict([np.expand_dims(img,-1), coords], batch_size=1)
-        model_segmentation_sagittal = np.argmax(yhat_sagittal, axis=-1)  
+        yhat_sagittal = model_sagittal.predict([np.expand_dims(img,-1), coords], batch_size=1, verbose=1)
+        model_segmentation_sagittal = yhat_sagittal 
         
     if model_coronal is not None:
-        yhat_coronal = model_coronal.predict([np.expand_dims(np.swapaxes(img, 0, 1),-1), np.swapaxes(coords, 0, 1)], batch_size=1)
-        model_segmentation_coronal = np.swapaxes(np.argmax(yhat_coronal,-1),0,1)          
+        yhat_coronal = model_coronal.predict([np.expand_dims(np.swapaxes(img, 0, 1),-1), np.swapaxes(coords, 0, 1)], batch_size=1, verbose=1)
+        model_segmentation_coronal = np.swapaxes(yhat_coronal,0,1)          
 
     if model_axial is not None:
-        yhat_axial = model_axial.predict([np.expand_dims(np.swapaxes(np.swapaxes(img, 1,2), 0,1),-1), np.swapaxes(np.swapaxes(coords, 1,2), 0,1)], batch_size=1)
-        model_segmentation_axial = np.swapaxes(np.swapaxes(np.argmax(yhat_axial,-1),0,1), 1,2)
+        yhat_axial = model_axial.predict([np.expand_dims(np.swapaxes(np.swapaxes(img, 1,2), 0,1),-1), np.swapaxes(np.swapaxes(coords, 1,2), 0,1)], batch_size=1, verbose=1)
+        model_segmentation_axial = np.swapaxes(np.swapaxes(yhat_axial,0,1), 1,2)
 
 
     # Add Consensus Here
+       
+    X = np.concatenate([np.expand_dims(img,-1), model_segmentation_sagittal,model_segmentation_coronal,model_segmentation_axial ],-1)
+    print('getting model consensus')
+    yhat = consensus_model.predict(np.expand_dims(X,0))
+    pred = np.argmax(yhat[0],-1)
 
-    return model_segmentation_sagittal, model_segmentation_coronal, model_segmentation_axial
+    
+    return pred #model_segmentation_sagittal, model_segmentation_coronal, model_segmentation_axial
