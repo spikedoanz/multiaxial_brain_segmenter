@@ -22,6 +22,9 @@ Path to axial segmenter model (included in repository), in format .h5
 CORONAL_MODEL_SESSION_PATH:
 Path to coronal segmenter model (included in repository), in format .h5
 
+CONSENSUS_LAYER_PATH:
+Path to layer for merging output probabilities from 3 uniaxial models (included in repository), in format .h5
+
 # OUTPUT
 
 In OUTPUT_PATH you will find 4 files: Individual segmentations along each axis by each respective model, and the consensus segmentation made by majority vote. All segmentations will be in nifti format (.nii) with the header of the original MRI.
