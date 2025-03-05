@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script to convert TensorFlow models to PyTorch with SafeTensors format.
+"""
+
+import os
+import argparse
+from pytorch_models.weight_converter import convert_model
+
+def convert_models(output_dir='pytorch_models'):
+    """
+    Convert all TensorFlow models to PyTorch with SafeTensors format.
+    
+    Args:
+        output_dir: Directory to save converted models
+    """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Convert sagittal model
+    print("Converting sagittal model...")
+    sagittal_path = os.path.join('models', 'sagittal_model.h5')
+    sagittal_output_path = os.path.join(output_dir, 'sagittal_model.safetensors')
+    convert_model(sagittal_path, sagittal_output_path, 'view')
+    
+    # Convert coronal model
+    print("Converting coronal model...")
+    coronal_path = os.path.join('models', 'coronal_model.h5')
+    coronal_output_path = os.path.join(output_dir, 'coronal_model.safetensors')
+    convert_model(coronal_path, coronal_output_path, 'view')
+    
+    # Convert axial model
+    print("Converting axial model...")
+    axial_path = os.path.join('models', 'axial_model.h5')
+    axial_output_path = os.path.join(output_dir, 'axial_model.safetensors')
+    convert_model(axial_path, axial_output_path, 'view')
+    
+    # Convert consensus model
+    print("Converting consensus model...")
+    consensus_path = os.path.join('models', 'consensus_layer.h5')
+    consensus_output_path = os.path.join(output_dir, 'consensus_layer.safetensors')
+    convert_model(consensus_path, consensus_output_path, 'consensus')
+    
+    print("All models converted successfully!")
+
+def main():
+    parser = argparse.ArgumentParser(description='Convert TensorFlow models to PyTorch')
+    parser.add_argument('--output_dir', type=str, default='pytorch_models', 
+                        help='Directory to save converted models')
+    
+    args = parser.parse_args()
+    
+    convert_models(args.output_dir)
+
+if __name__ == '__main__':
+    main()
