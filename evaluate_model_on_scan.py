@@ -10,7 +10,6 @@ import os
 import numpy as np
 import nibabel as nib
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 
 GPU = 0
@@ -28,14 +27,14 @@ if gpus:
 
 
 
-OUTPUT_PATH = '/output/'
+OUTPUT_PATH = 'output.nii.gz'
 
-scan_path = '/path/to/MRI.nii'
+scan_path = 'input.nii.gz'
 
-SAGITTAL_MODEL_SESSION_PATH = '/path/to/model.h5'
-AXIAL_MODEL_SESSION_PATH = '/path/to/model.h5'
-CORONAL_MODEL_SESSION_PATH = '/path/to/model.h5'
-CONSENSUS_LAYER_PATH = '/path/to/layer.h5'
+SAGITTAL_MODEL_SESSION_PATH = 'models/sagittal_model.h5'
+AXIAL_MODEL_SESSION_PATH = 'models/axial_model.h5'
+CORONAL_MODEL_SESSION_PATH = 'models/coronal_model.h5'
+CONSENSUS_LAYER_PATH = 'models/consensus_layer.h5'
 
 segmentation_path = None
 anterior_commissure = None 
@@ -46,9 +45,9 @@ if __name__ == '__main__':
     
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
-    from preprocessing_lib import preprocess_head_MRI, reshape_back_to_original
+    from scripts.preprocessing_lib import preprocess_head_MRI, reshape_back_to_original
     
-    from utils import segment_MRI, Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
+    from scripts.utils import segment_MRI, Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
     
 
     
@@ -95,7 +94,7 @@ if __name__ == '__main__':
     # nii_model_seg_reconstructed = reshape_back_to_original(model_segmentation_sagittal, nii, reconstruction_parms, resample_order=0)
     
     nii_out_pred = nib.Nifti1Image(np.array(segmentation, dtype='int16'), nii_out.affine)
-    nib.save(nii_out_pred, OUTPUT_PATH + subject + '_consensus_segmentation.nii')    
+    nib.save(nii_out_pred, OUTPUT_PATH)    
 
         
     
