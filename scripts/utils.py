@@ -12,58 +12,6 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 
 
-def dice_coef(y_true, y_pred):
-    smooth = 1e-6
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = tf.reduce_sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (tf.reduce_sum(y_true_f**2) + tf.reduce_sum(y_pred_f**2) + smooth)
-
-
-def Generalised_dice_coef_multilabel7(y_true, y_pred, numLabels=7):
-    """This is the loss function to MINIMIZE. A perfect overlap returns 0. Total disagreement returns numeLabels"""
-    dice=0
-    for index in range(numLabels):
-        dice -= dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index])
-        
-    return numLabels + dice
-
-def dice_coef_multilabel_bin0(y_true, y_pred):
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,0] * y_pred[:,:,:,0])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,0] + y_pred[:,:,:,0])
-  return numerator / denominator
-
-def dice_coef_multilabel_bin1(y_true, y_pred):
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,1] * y_pred[:,:,:,1])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,1] + y_pred[:,:,:,1])
-  return numerator / denominator
-
-def dice_coef_multilabel_bin2(y_true, y_pred):
-    
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,2] * y_pred[:,:,:,2])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,2] + y_pred[:,:,:,2])
-  return numerator / denominator
-
-def dice_coef_multilabel_bin3(y_true, y_pred):
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,3] * y_pred[:,:,:,3])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,3] + y_pred[:,:,:,3])
-  return numerator / denominator
-
-def dice_coef_multilabel_bin4(y_true, y_pred):
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,4] * y_pred[:,:,:,4])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,4] + y_pred[:,:,:,4])
-  return numerator / denominator
-
-def dice_coef_multilabel_bin5(y_true, y_pred):
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,5] * y_pred[:,:,:,5])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,5] + y_pred[:,:,:,5])
-  return numerator / denominator
-
-def dice_coef_multilabel_bin6(y_true, y_pred):
-  numerator = 2 * tf.math.reduce_sum(y_true[:,:,:,6] * y_pred[:,:,:,6])
-  denominator = tf.math.reduce_sum(y_true[:,:,:,6] + y_pred[:,:,:,6])
-  return numerator / denominator
-
 def segment_MRI(img, coords, model_sagittal=None, model_axial=None, model_coronal=None, consensus_model=None):
     
     model_segmentation_sagittal = None

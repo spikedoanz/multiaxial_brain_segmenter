@@ -10,6 +10,7 @@ import os
 import numpy as np
 import nibabel as nib
 import tensorflow as tf
+from scripts.utils import segment_MRI
 
 
 GPU = 0
@@ -47,30 +48,16 @@ if __name__ == '__main__':
     
     from scripts.preprocessing_lib import preprocess_head_MRI, reshape_back_to_original
     
-    from scripts.utils import segment_MRI, Generalised_dice_coef_multilabel7, dice_coef_multilabel_bin0, dice_coef_multilabel_bin1, dice_coef_multilabel_bin2, dice_coef_multilabel_bin3, dice_coef_multilabel_bin4, dice_coef_multilabel_bin5, dice_coef_multilabel_bin6
-    
 
     
-    
-    my_custom_objects = {'Generalised_dice_coef_multilabel7':Generalised_dice_coef_multilabel7,
-                                     'dice_coef_multilabel_bin0':dice_coef_multilabel_bin0,
-                                     'dice_coef_multilabel_bin1':dice_coef_multilabel_bin1,
-                                     'dice_coef_multilabel_bin2':dice_coef_multilabel_bin2,
-                                     'dice_coef_multilabel_bin3':dice_coef_multilabel_bin3,
-                                     'dice_coef_multilabel_bin4':dice_coef_multilabel_bin4,
-                                     'dice_coef_multilabel_bin5':dice_coef_multilabel_bin5,
-                                     'dice_coef_multilabel_bin6':dice_coef_multilabel_bin6}
-    
-
     
             
     if SAGITTAL_MODEL_SESSION_PATH is not None:
-        model_sagittal = tf.keras.models.load_model(SAGITTAL_MODEL_SESSION_PATH, custom_objects = my_custom_objects)
+        model_sagittal = tf.keras.models.load_model(SAGITTAL_MODEL_SESSION_PATH)
     if AXIAL_MODEL_SESSION_PATH is not None:
-        model_axial = tf.keras.models.load_model(AXIAL_MODEL_SESSION_PATH, custom_objects = my_custom_objects)
+        model_axial = tf.keras.models.load_model(AXIAL_MODEL_SESSION_PATH)
     if CORONAL_MODEL_SESSION_PATH is not None:
-        model_coronal = tf.keras.models.load_model(CORONAL_MODEL_SESSION_PATH, custom_objects = my_custom_objects)           
-
+        model_coronal = tf.keras.models.load_model(CORONAL_MODEL_SESSION_PATH) 
     consensus_model = tf.keras.models.load_model(CONSENSUS_LAYER_PATH)
 
     nii = nib.load(scan_path)
