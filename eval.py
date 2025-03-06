@@ -2,6 +2,8 @@
 import os
 import sys
 import nibabel as nib
+import onnxruntime as ort
+import numpy as np
 import numpy as np
 import onnxruntime as ort
 from tqdm import tqdm
@@ -362,18 +364,6 @@ def process_axial_slices(session, img, coords):
     return output
 
 def segment_MRI_onnx(img, coords, model_sagittal_path=None, model_axial_path=None, model_coronal_path=None, consensus_model_path=None):
-    """
-    Segment an MRI image using the provided ONNX models.
-    
-    This function processes 2D slices of a 3D brain using the sagittal, coronal, and axial models,
-    then combines the predictions using the consensus model.
-    
-    Each coordinate model (sagittal, coronal, axial) expects 2D inputs with shapes:
-    - Image: [1, 256, 256, 1] (batch, height, width, channels)
-    - Coordinates: [1, 256, 256, 3] (batch, height, width, coordinate channels)
-    """
-    import onnxruntime as ort
-    import numpy as np
     
     model_segmentation_sagittal = None
     model_segmentation_coronal = None
