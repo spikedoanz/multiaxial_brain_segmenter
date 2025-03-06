@@ -4,6 +4,7 @@ import sys
 import nibabel as nib
 import numpy as np
 from tqdm import tqdm
+import time
 from skimage.transform import resize
 from nibabel.orientations import axcodes2ornt, ornt_transform
 from tinygrad.tensor import Tensor
@@ -179,228 +180,178 @@ def reshape_back_to_original(img, nii_original, reconstruction_parms, resample_o
     return nii_out
 
 # ------------------
-# ONNX Model Inspection
-# ------------------
-def inspect_onnx_model(model_path):
-    """
-    Load and inspect an ONNX model to understand its input and output structure.
-    """
-    print(f"Inspecting ONNX model: {model_path}")
-    
-    try:
-        import onnx
-        # Load the model
-        model = onnx.load(model_path)
-        
-        # Check model metadata
-        print(f"Model IR version: {model.ir_version}")
-        print(f"Producer name: {model.producer_name}")
-        print(f"Producer version: {model.producer_version}")
-        print(f"Domain: {model.domain}")
-        print(f"Model version: {model.model_version}")
-        
-        # Analyze inputs
-        print("\nInputs:")
-        for i, input_info in enumerate(model.graph.input):
-            print(f"  Input #{i}: {input_info.name}")
-            
-            # Get input shape
-            shape = []
-            for dim in input_info.type.tensor_type.shape.dim:
-                if dim.dim_param:
-                    shape.append(dim.dim_param)  # Dynamic dimension
-                else:
-                    shape.append(dim.dim_value)  # Static dimension
-            
-            print(f"    Shape: {shape}")
-            
-            # Get data type
-            dtype = input_info.type.tensor_type.elem_type
-            print(f"    Data Type: {dtype}")
-        
-        # Analyze outputs
-        print("\nOutputs:")
-        for i, output_info in enumerate(model.graph.output):
-            print(f"  Output #{i}: {output_info.name}")
-            
-            # Get output shape
-            shape = []
-            for dim in output_info.type.tensor_type.shape.dim:
-                if dim.dim_param:
-                    shape.append(dim.dim_param)  # Dynamic dimension
-                else:
-                    shape.append(dim.dim_value)  # Static dimension
-            
-            print(f"    Shape: {shape}")
-            
-            # Get data type
-            dtype = output_info.type.tensor_type.elem_type
-            print(f"    Data Type: {dtype}")
-        
-        # Count the number of nodes
-        nodes_count = len(model.graph.node)
-        print(f"\nTotal nodes in the model: {nodes_count}")
-        
-        # List of node types (operators)
-        op_types = set(node.op_type for node in model.graph.node)
-        print(f"Operator types used: {', '.join(sorted(op_types))}")
-    except ImportError:
-        print("ONNX library not found. Install with 'pip install onnx' to use this function.")
-    except Exception as e:
-        print(f"Error inspecting model: {e}")
-
-# ------------------
 # TinyGrad ONNX Segmentation Logic
 # ------------------
-def process_sagittal_slices(runner, img, coords, input_names=None):
-    """Process all sagittal slices through the model and return the predictions."""
+def process_slices(runner, img, coords, axis=0, input_names=None):
+    """
+    Process slices through the model and return the predictions.
+    
+    Args:
+        runner: OnnxRunner instance
+        img: The preprocessed image data
+        coords: The coordinate data
+        axis: Axis to slice along (0=sagittal, 1=coronal, 2=axial)
+        input_names: Dictionary mapping input types to model input names
+    
+    Returns:
+        Predictions as a 4D numpy array [height, width, depth, classes]
+    """
     # Initialize output array (7 classes per slice prediction)
     output = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
     
-    print(f"Processing {img.shape[0]} sagittal slices...")
+    # Map axis numbers to names for logging
+    axis_names = {0: "sagittal", 1: "coronal", 2: "axial"}
+    print(f"Processing {img.shape[axis]} {axis_names[axis]} slices...")
     
-    # If input_names not provided, attempt to detect from the first run
+    # Default input names if not provided
     if input_names is None:
         input_names = {"img": "input_1", "coords": "input_2"}
-        print(f"Using default input names: {input_names}")
     
     img_input_name = input_names["img"]
     coords_input_name = input_names["coords"]
     
     # Process each slice
-    for i in tqdm(range(img.shape[0])):
-        # Extract 2D slice
-        img_slice = img[i, :, :]
-        coords_slice = coords[i, :, :, :]
+    for i in tqdm(range(img.shape[axis])):
+        # Extract 2D slice based on the specified axis
+        if axis == 0:  # Sagittal (YZ plane)
+            img_slice = img[i, :, :]
+            coords_slice = coords[i, :, :, :]
+        elif axis == 1:  # Coronal (XZ plane)
+            img_slice = img[:, i, :]
+            coords_slice = coords[:, i, :, :]
+        else:  # Axial (XY plane)
+            img_slice = img[:, :, i]
+            coords_slice = coords[:, :, i, :]
         
         # Prepare inputs with correct shapes
         img_input = np.expand_dims(np.expand_dims(img_slice, -1), 0).astype(np.float32)
         coords_input = np.expand_dims(coords_slice, 0).astype(np.float32)
         
-        # Print shapes for the first slice to verify
-        if i == 0:
-            print(f"  Input image shape: {img_input.shape}")
-            print(f"  Input coords shape: {coords_input.shape}")
-        
         # Create TinyGrad tensors
         img_tensor = Tensor(img_input, requires_grad=False)
         coords_tensor = Tensor(coords_input, requires_grad=False)
         
-        # Run inference using TinyGrad's OnnxRunner with correct input names
+        # Run inference with correct input names
         outputs = runner({
             img_input_name: img_tensor, 
             coords_input_name: coords_tensor
         })
         
-        # Get output tensor (assuming the output has a standard name like 'output')
-        # Extract the first key if only one output is present
+        # Get output tensor and convert to numpy
         output_tensor = list(outputs.values())[0]
         
-        # Convert to numpy and store prediction (remove batch dimension)
-        output[i, :, :, :] = output_tensor.numpy()[0]
+        # Store prediction according to the correct axis
+        if axis == 0:  # Sagittal
+            output[i, :, :, :] = output_tensor.numpy()[0]
+        elif axis == 1:  # Coronal
+            output[:, i, :, :] = output_tensor.numpy()[0]
+        else:  # Axial
+            output[:, :, i, :] = output_tensor.numpy()[0]
     
     return output
 
-def process_coronal_slices(runner, img, coords, input_names=None):
-    """Process all coronal slices through the model and return the predictions."""
-    # Initialize output array (7 classes per slice prediction)
-    output = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
-    
-    print(f"Processing {img.shape[1]} coronal slices...")
-    
-    # If input_names not provided, attempt to detect from the first run
-    if input_names is None:
-        input_names = {"img": "input_1", "coords": "input_2"}
-        print(f"Using default input names: {input_names}")
-    
-    img_input_name = input_names["img"]
-    coords_input_name = input_names["coords"]
-    
-    # Process each slice
-    for i in tqdm(range(img.shape[1])):
-        # Extract 2D slice
-        img_slice = img[:, i, :]
-        coords_slice = coords[:, i, :, :]
-        
-        # Prepare inputs with correct shapes
-        img_input = np.expand_dims(np.expand_dims(img_slice, -1), 0).astype(np.float32)
-        coords_input = np.expand_dims(coords_slice, 0).astype(np.float32)
-        
-        # Print shapes for the first slice to verify
+def get_input_names(model):
+    """Extract input names from an ONNX model."""
+    input_names = {}
+    for i, input_info in enumerate(model.graph.input):
         if i == 0:
-            print(f"  Input image shape: {img_input.shape}")
-            print(f"  Input coords shape: {coords_input.shape}")
-        
-        # Create TinyGrad tensors
-        img_tensor = Tensor(img_input, requires_grad=False)
-        coords_tensor = Tensor(coords_input, requires_grad=False)
-        
-        # Run inference using TinyGrad's OnnxRunner with correct input names
-        outputs = runner({
-            img_input_name: img_tensor, 
-            coords_input_name: coords_tensor
-        })
-        
-        # Get output tensor (assuming the output has a standard name like 'output')
-        # Extract the first key if only one output is present
-        output_tensor = list(outputs.values())[0]
-        
-        # Convert to numpy and store prediction (remove batch dimension)
-        output[:, i, :, :] = output_tensor.numpy()[0]
-    
-    return output
+            input_names["img"] = input_info.name
+        elif i == 1:
+            input_names["coords"] = input_info.name
+    return input_names
 
-def process_axial_slices(runner, img, coords, input_names=None):
-    """Process all axial slices through the model and return the predictions."""
-    # Initialize output array (7 classes per slice prediction)
-    output = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
+def extract_weights_from_onnx(model_path):
+    """
+    Extract weights and biases from the consensus layer ONNX model.
     
-    print(f"Processing {img.shape[1]} coronal slices...")
+    Args:
+        model_path: Path to the ONNX model file
+        
+    Returns:
+        tuple: (weights, biases)
+    """
+    import onnx
+    from onnx import numpy_helper
     
-    # If input_names not provided, attempt to detect from the first run
-    if input_names is None:
-        input_names = {"img": "input_1", "coords": "input_2"}
-        print(f"Using default input names: {input_names}")
+    model = onnx.load(model_path)
     
-    img_input_name = input_names["img"]
-    coords_input_name = input_names["coords"]
-    print(f"Processing {img.shape[2]} axial slices...")
+    # Find the convolution weights and biases
+    weights = None
+    biases = None
     
-    # Process each slice
-    for i in tqdm(range(img.shape[2])):
-        # Extract 2D slice
-        img_slice = img[:, :, i]
-        coords_slice = coords[:, :, i, :]
+    for initializer in model.graph.initializer:
+        if initializer.name == "model/conv3d/Conv3D/ReadVariableOp:0":
+            weights = numpy_helper.to_array(initializer)
+            print(f"Extracted consensus weights with shape {weights.shape}")
+        elif initializer.name == "model/conv3d/BiasAdd/ReadVariableOp:0":
+            biases = numpy_helper.to_array(initializer)
+            print(f"Extracted consensus biases with shape {biases.shape}")
+    
+    return weights, biases
+
+def optimized_consensus(combined_data, weights, biases):
+    """
+    Apply the optimized consensus function using direct matrix multiplication.
+    
+    Args:
+        combined_data: Combined data with shape [height, width, depth, channels]
+        weights: Convolution weights with shape [7, 22, 1, 1, 1]
+        biases: Biases with shape [7]
         
-        # Prepare inputs with correct shapes
-        img_input = np.expand_dims(np.expand_dims(img_slice, -1), 0).astype(np.float32)
-        coords_input = np.expand_dims(coords_slice, 0).astype(np.float32)
+    Returns:
+        numpy.ndarray: Final segmentation with shape [height, width, depth]
+    """
+    height, width, depth, channels = combined_data.shape
+    
+    # Reshape weights to [22, 7] for matrix multiplication
+    weights_2d = weights.reshape(7, channels).transpose()
+    
+    # Reshape input to [voxels, channels]
+    flat_data = combined_data.reshape(-1, channels)
+    
+    # Process in batches for memory efficiency
+    batch_size = 1000000  # Adjust based on available memory
+    total_voxels = flat_data.shape[0]
+    output_flat = np.zeros(total_voxels, dtype=np.int64)
+    
+    print(f"Processing {total_voxels} voxels through optimized consensus...")
+    
+    for start_idx in tqdm(range(0, total_voxels, batch_size)):
+        end_idx = min(start_idx + batch_size, total_voxels)
+        batch = flat_data[start_idx:end_idx]
         
-        # Print shapes for the first slice to verify
-        if i == 0:
-            print(f"  Input image shape: {img_input.shape}")
-            print(f"  Input coords shape: {coords_input.shape}")
+        # Apply matrix multiplication: [batch, channels] × [channels, 7] = [batch, 7]
+        logits = np.matmul(batch, weights_2d)
         
-        # Create TinyGrad tensors
-        img_tensor = Tensor(img_input, requires_grad=False)
-        coords_tensor = Tensor(coords_input, requires_grad=False)
+        # Add biases
+        logits += biases
         
-        # Run inference using TinyGrad's OnnxRunner with correct input names
-        outputs = runner({
-            img_input_name: img_tensor, 
-            coords_input_name: coords_tensor
-        })
+        # Get class predictions (argmax)
+        predictions = np.argmax(logits, axis=1)
         
-        # Get output tensor (assuming the output has a standard name like 'output')
-        # Extract the first key if only one output is present
-        output_tensor = list(outputs.values())[0]
-        
-        # Convert to numpy and store prediction (remove batch dimension)
-        output[:, :, i, :] = output_tensor.numpy()[0]
+        # Store predictions
+        output_flat[start_idx:end_idx] = predictions
+    
+    # Reshape back to volume
+    output = output_flat.reshape(height, width, depth)
     
     return output
 
 def segment_MRI_tinygrad(img, coords, model_sagittal_path=None, model_axial_path=None, model_coronal_path=None, consensus_model_path=None):
+    """
+    Perform MRI segmentation using the TinyGrad ONNX runner with optimized consensus.
+    
+    Args:
+        img: The preprocessed image data
+        coords: The coordinate data
+        model_sagittal_path: Path to the sagittal model ONNX file
+        model_axial_path: Path to the axial model ONNX file
+        model_coronal_path: Path to the coronal model ONNX file
+        consensus_model_path: Path to the consensus model ONNX file
+        
+    Returns:
+        The segmentation output as a 3D numpy array
+    """
     # Import necessary models
     import onnx
     
@@ -408,80 +359,38 @@ def segment_MRI_tinygrad(img, coords, model_sagittal_path=None, model_axial_path
     model_segmentation_coronal = None
     model_segmentation_axial = None
     
-    # Debug helper function
-    def print_model_inputs(model_path, model_name):
-        """Print information about model inputs to help with debugging"""
-        model = onnx.load(model_path)
-        print(f"\n{model_name} Input Details:")
-        input_names = {}
-        for i, input_info in enumerate(model.graph.input):
-            print(f"  Input #{i}")
-            print(f"    Name: {input_info.name}")
-            # Get shape
-            shape = []
-            for dim in input_info.type.tensor_type.shape.dim:
-                if dim.dim_param:
-                    shape.append(dim.dim_param)
-                else:
-                    shape.append(dim.dim_value)
-            print(f"    Shape: {shape}")
-            print(f"    Type: {input_info.type.tensor_type.elem_type}")
-            
-            # Store input names
-            if i == 0:
-                input_names["img"] = input_info.name
-            elif i == 1:
-                input_names["coords"] = input_info.name
-                
-        print(f"  Detected input names: {input_names}")
-        print("")
-        return input_names
-
-    # Process slice-by-slice for each model
-    if model_sagittal_path is not None:
-        print("Running sagittal model inference...")
-        sagittal_model = onnx.load(model_sagittal_path)
-        sagittal_runner = OnnxRunner(sagittal_model)
-        sagittal_input_names = print_model_inputs(model_sagittal_path, "Sagittal Model")
-        model_segmentation_sagittal = process_sagittal_slices(
-            sagittal_runner, img, coords, input_names=sagittal_input_names
-        )
+    # Process each view model if provided
+    view_models = [
+        (model_sagittal_path, 0, "sagittal"),  # axis 0 = sagittal
+        (model_coronal_path, 1, "coronal"),    # axis 1 = coronal
+        (model_axial_path, 2, "axial")         # axis 2 = axial
+    ]
     
-    if model_coronal_path is not None:
-        print("Running coronal model inference...")
-        coronal_model = onnx.load(model_coronal_path)
-        coronal_runner = OnnxRunner(coronal_model)
-        coronal_input_names = print_model_inputs(model_coronal_path, "Coronal Model")
-        model_segmentation_coronal = process_coronal_slices(
-            coronal_runner, img, coords, input_names=coronal_input_names
-        )
+    view_outputs = [None, None, None]
     
-    if model_axial_path is not None:
-        print("Running axial model inference...")
-        axial_model = onnx.load(model_axial_path)
-        axial_runner = OnnxRunner(axial_model)
-        axial_input_names = print_model_inputs(model_axial_path, "Axial Model")
-        model_segmentation_axial = process_axial_slices(
-            axial_runner, img, coords, input_names=axial_input_names
-        )
+    for i, (model_path, axis, name) in enumerate(view_models):
+        if model_path is not None:
+            print(f"Running {name} model inference...")
+            model = onnx.load(model_path)
+            runner = OnnxRunner(model)
+            input_names = get_input_names(model)
+            view_outputs[i] = process_slices(
+                runner, img, coords, axis=axis, input_names=input_names
+            )
     
     # Create empty outputs for any models that didn't run
-    if model_segmentation_sagittal is None:
-        model_segmentation_sagittal = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
-    if model_segmentation_coronal is None:
-        model_segmentation_coronal = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
-    if model_segmentation_axial is None:
-        model_segmentation_axial = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
+    for i in range(3):
+        if view_outputs[i] is None:
+            view_outputs[i] = np.zeros((img.shape[0], img.shape[1], img.shape[2], 7), dtype=np.float32)
     
-    # Run consensus model
-    print("Running consensus model...")
-    consensus_model = onnx.load(consensus_model_path)
-    consensus_runner = OnnxRunner(consensus_model)
-    consensus_input_names = print_model_inputs(consensus_model_path, "Consensus Model")
+    # Extract results
+    model_segmentation_sagittal = view_outputs[0]
+    model_segmentation_coronal = view_outputs[1]
+    model_segmentation_axial = view_outputs[2]
     
-    # Get the input name for the consensus model
-    consensus_input_name = list(consensus_input_names.values())[0] if consensus_input_names else "input_1"
-    print(f"Using consensus input name: {consensus_input_name}")
+    # Extract consensus model weights
+    print("Extracting consensus model weights and biases...")
+    weights, biases = extract_weights_from_onnx(consensus_model_path)
     
     # Prepare input for consensus model
     img_expanded = np.expand_dims(img, -1).astype(np.float32)
@@ -496,57 +405,12 @@ def segment_MRI_tinygrad(img, coords, model_sagittal_path=None, model_axial_path
     
     print(f"Combined data shape: {combined_data.shape}")
     
-    # Initialize output array
-    height, width, depth = img.shape
-    output = np.zeros((height, width, depth), dtype=np.int64)
+    # Apply optimized consensus function
+    start_time = time.time()
+    output = optimized_consensus(combined_data, weights, biases)
+    end_time = time.time()
     
-    # Process each voxel individually
-    print("Running consensus model inference voxel by voxel...")
-    
-    # Using a progress tracker to give feedback
-    total_voxels = height * width * depth
-    voxels_processed = 0
-    last_percent = -1
-    
-    for i in range(height):
-        for j in range(width):
-            for k in range(depth):
-                # Extract features for this voxel
-                voxel_features = combined_data[i, j, k]
-                
-                # Reshape to match expected input: [batch, 1, 1, 1, channels]
-                X = np.expand_dims(voxel_features, axis=0)  # Add batch dimension
-                X = np.expand_dims(X, axis=1)  # Add height dimension
-                X = np.expand_dims(X, axis=1)  # Add width dimension
-                X = np.expand_dims(X, axis=1)  # Add depth dimension
-                
-                # Create TinyGrad tensor
-                X_tensor = Tensor(X.astype(np.float32), requires_grad=False)
-                
-                # Run inference on single voxel with the correct input name
-                outputs = consensus_runner({consensus_input_name: X_tensor})
-                
-                # Get output tensor
-                output_tensor = list(outputs.values())[0]
-                output_data = output_tensor.numpy()
-                
-                # Get prediction for this voxel
-                if len(output_data.shape) == 5:  # Shape: [1, 1, 1, 1, N]
-                    pred = np.argmax(output_data[0, 0, 0, 0])
-                else:
-                    pred = output_data[0, 0, 0, 0]
-                
-                # Store prediction
-                output[i, j, k] = pred
-                
-                # Update progress
-                voxels_processed += 1
-                percent_complete = (voxels_processed * 100) // total_voxels
-                if percent_complete > last_percent and percent_complete % 10 == 0:
-                    print(f"Progress: {percent_complete}% complete")
-                    last_percent = percent_complete
-    
-    print("Consensus model processing complete.")
+    print(f"Consensus processing completed in {end_time - start_time:.2f} seconds")
     
     return output
 
@@ -556,22 +420,21 @@ def segment_MRI_tinygrad(img, coords, model_sagittal_path=None, model_axial_path
 def main():
     # Configuration
     OUTPUT_PATH = 'output.nii.gz'
-    SCAN_PATH = 'input.nii.gz'
+    SCAN_PATH = 'T1bsnip_c.nii.gz'
     SAGITTAL_MODEL_PATH = 'models/sagittal_model.onnx'
     AXIAL_MODEL_PATH = 'models/axial_model.onnx'
     CORONAL_MODEL_PATH = 'models/coronal_model.onnx'
     CONSENSUS_LAYER_PATH = 'models/consensus_layer.onnx'
     SEGMENTATION_PATH = None
     ANTERIOR_COMMISSURE = None
-    INSPECT_ONLY = False  # Set to True to only inspect models without running inference
     
     # Set working directory to script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(script_dir)
     
     # Print script information
-    print("MRI Segmentation with TinyGrad ONNX Runner")
-    print("===========================================")
+    print("MRI Segmentation with TinyGrad ONNX Runner (Optimized)")
+    print("=====================================================")
     print(f"Working directory: {script_dir}")
     print(f"Output path: {OUTPUT_PATH}")
     print(f"Scan path: {SCAN_PATH}")
@@ -579,26 +442,12 @@ def main():
     print(f"Axial model: {os.path.basename(AXIAL_MODEL_PATH)}")
     print(f"Coronal model: {os.path.basename(CORONAL_MODEL_PATH)}")
     print(f"Consensus model: {os.path.basename(CONSENSUS_LAYER_PATH)}")
-    print("===========================================\n")
-    
-    # Check if we should just inspect the models
-    if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-        inspect_onnx_model(sys.argv[1])
-        return
-    
-    # Optionally inspect all models first
-    if INSPECT_ONLY:
-        print("Inspecting ONNX models...")
-        inspect_onnx_model(SAGITTAL_MODEL_PATH)
-        inspect_onnx_model(CORONAL_MODEL_PATH)
-        inspect_onnx_model(AXIAL_MODEL_PATH)
-        inspect_onnx_model(CONSENSUS_LAYER_PATH)
-        return
+    print("=====================================================\n")
     
     # Load scan
     nii = nib.load(SCAN_PATH)
     nii_seg = nib.load(SEGMENTATION_PATH) if SEGMENTATION_PATH else None
-    print(nii.shape)
+    print(f"Input scan shape: {nii.shape}")
     
     # Extract subject ID
     subject = SCAN_PATH.split('/')[-1].replace('.nii', '')
@@ -613,7 +462,7 @@ def main():
         keep_parameters_for_reconstruction=True
     )     
     
-    # Segment the MRI using TinyGrad's ONNX runtime
+    # Segment the MRI using TinyGrad's ONNX runtime with optimized consensus
     segmentation = segment_MRI_tinygrad(
         nii_out.get_fdata(), 
         coords, 
