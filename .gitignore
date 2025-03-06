@@ -17,3 +17,9 @@
 # Data folder
 Data/
 Sessions/
+
+*.DS_Store
+*.venv/
+
+*h5
+*onnx

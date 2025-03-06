@@ -25,7 +25,7 @@ def convert_keras_to_onnx(model_path, output_path=None):
     for inp in keras_model.inputs:
         shape = inp.shape.as_list()
         # Replace None with a concrete batch size (1)
-        shape = [1 if dim is None else dim for dim in shape]
+        # shape = [1 if dim is None else dim for dim in shape]
         input_signature.append(tf.TensorSpec(shape, inp.dtype, name=inp.name))
     print(input_signature)
     
