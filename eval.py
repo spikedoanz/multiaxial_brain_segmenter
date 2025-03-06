@@ -372,6 +372,9 @@ def segment_MRI_onnx(img, coords, model_sagittal_path=None, model_axial_path=Non
     - Image: [1, 256, 256, 1] (batch, height, width, channels)
     - Coordinates: [1, 256, 256, 3] (batch, height, width, coordinate channels)
     """
+    import onnxruntime as ort
+    import numpy as np
+    
     model_segmentation_sagittal = None
     model_segmentation_coronal = None
     model_segmentation_axial = None
@@ -427,34 +430,62 @@ def segment_MRI_onnx(img, coords, model_sagittal_path=None, model_axial_path=Non
     img_expanded = np.expand_dims(img, -1).astype(np.float32)
     
     # Concatenate along the channel dimension
-    X = np.concatenate([
+    combined_data = np.concatenate([
         img_expanded, 
         model_segmentation_sagittal,
         model_segmentation_coronal,
         model_segmentation_axial
     ], axis=-1)
     
-    print(f"Consensus model input shape: {X.shape}")
+    print(f"Combined data shape: {combined_data.shape}")
     
-    # Add batch dimension for the consensus model
-    X = np.expand_dims(X, 0)
+    # Initialize output array
+    height, width, depth = img.shape
+    output = np.zeros((height, width, depth), dtype=np.int64)
     
-    # Get input name for consensus model
+    # Process each voxel individually
+    print("Running consensus model inference voxel by voxel...")
     input_name = consensus_session.get_inputs()[0].name
     
-    # Run inference on the consensus model
-    outputs = consensus_session.run(None, {input_name: X})
-    yhat = outputs[0]
+    # Using a progress tracker to give feedback
+    total_voxels = height * width * depth
+    voxels_processed = 0
+    last_percent = -1
     
-    print(f"Consensus model output shape: {yhat.shape}")
+    for i in range(height):
+        for j in range(width):
+            for k in range(depth):
+                # Extract features for this voxel
+                voxel_features = combined_data[i, j, k]
+                
+                # Reshape to match expected input: [batch, 1, 1, 1, channels]
+                X = np.expand_dims(voxel_features, axis=0)  # Add batch dimension
+                X = np.expand_dims(X, axis=1)  # Add height dimension
+                X = np.expand_dims(X, axis=1)  # Add width dimension
+                X = np.expand_dims(X, axis=1)  # Add depth dimension
+                
+                # Run inference on single voxel
+                outputs = consensus_session.run(None, {input_name: X})
+                
+                # Get prediction for this voxel
+                if len(outputs[0].shape) == 5:  # Shape: [1, 1, 1, 1, N]
+                    pred = np.argmax(outputs[0][0, 0, 0, 0])
+                else:
+                    pred = outputs[0][0, 0, 0, 0]
+                
+                # Store prediction
+                output[i, j, k] = pred
+                
+                # Update progress
+                voxels_processed += 1
+                percent_complete = (voxels_processed * 100) // total_voxels
+                if percent_complete > last_percent and percent_complete % 10 == 0:
+                    print(f"Progress: {percent_complete}% complete")
+                    last_percent = percent_complete
     
-    # Process output based on shape
-    if len(yhat.shape) == 5:  # Shape: [1, 256, 256, 256, N]
-        pred = np.argmax(yhat[0], axis=-1)
-    else:  # Shape: [1, 256, 256, 256]
-        pred = yhat[0]
+    print("Consensus model processing complete.")
     
-    return pred
+    return output
 
 # ---------------------
 # Main Execution Logic
